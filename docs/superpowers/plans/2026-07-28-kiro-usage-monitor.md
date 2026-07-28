@@ -206,6 +206,7 @@ Provenance = Literal["official", "local", "local_approx", "unavailable"]
 AccountStatus = Literal["ok", "needs_login", "disabled", "error"]
 PaceMode = Literal["calendar", "workday"]
 
+
 @dataclass(frozen=True)
 class ConversationRow:
     conversation_id: str
@@ -213,6 +214,7 @@ class ConversationRow:
     model_id: str | None
     credits: float
     updated_at_ms: int
+
 
 @dataclass(frozen=True)
 class DbSnapshot:
@@ -225,6 +227,7 @@ class DbSnapshot:
     by_model: tuple[tuple[str, float], ...]
     recent: tuple[ConversationRow, ...]
     approx: bool
+
 
 @dataclass(frozen=True)
 class AccountInfo:
@@ -242,6 +245,7 @@ class AccountInfo:
     currency: str
     fetched_at: datetime
 
+
 @dataclass(frozen=True)
 class PaceInfo:
     mode: PaceMode
@@ -254,6 +258,7 @@ class PaceInfo:
     non_working_today: bool
     holidays_available: bool
 
+
 @dataclass(frozen=True)
 class AppConfig:
     refresh_seconds: int = 3
@@ -264,6 +269,7 @@ class AppConfig:
     region: str | None = None
     timezone: str | None = None
     reset_hour: int = 0
+
 
 @dataclass(frozen=True)
 class Snapshot:
@@ -301,11 +307,19 @@ def test_appconfig_defaults() -> None:
 def test_account_info_holds_reset_datetime() -> None:
     """AccountInfo carries a timezone-aware reset datetime."""
     info = AccountInfo(
-        email="user@example.com", tier="KIRO FREE", sub_type="FREE",
-        used=11.21, limit=50.0, overage_used=0.0, overage_cap=10000.0,
-        overage_rate=0.04, overage_enabled=False,
-        next_reset=datetime(2026, 8, 1, tzinfo=UTC), days_until_reset_api=0,
-        currency="USD", fetched_at=datetime(2026, 7, 28, tzinfo=UTC),
+        email="user@example.com",
+        tier="KIRO FREE",
+        sub_type="FREE",
+        used=11.21,
+        limit=50.0,
+        overage_used=0.0,
+        overage_cap=10000.0,
+        overage_rate=0.04,
+        overage_enabled=False,
+        next_reset=datetime(2026, 8, 1, tzinfo=UTC),
+        days_until_reset_api=0,
+        currency="USD",
+        fetched_at=datetime(2026, 7, 28, tzinfo=UTC),
     )
     assert info.next_reset.tzinfo is UTC
 ```
@@ -367,7 +381,9 @@ def _conversation_json(cwd: str, model: str, credits: float) -> str:
         {
             "history": [
                 {
-                    "user": {"env_context": {"env_state": {"current_working_directory": cwd}}},
+                    "user": {
+                        "env_context": {"env_state": {"current_working_directory": cwd}}
+                    },
                     "request_metadata": {"model_id": model},
                 }
             ],
@@ -395,7 +411,13 @@ def make_db(tmp_path: Path) -> Callable[[list[tuple[str, str, str, float, int]]]
         for cid, folder, model, credits, updated in rows:
             conn.execute(
                 "INSERT INTO conversations_v2 VALUES (?,?,?,?,?)",
-                (folder, cid, _conversation_json(folder, model, credits), updated, updated),
+                (
+                    folder,
+                    cid,
+                    _conversation_json(folder, model, credits),
+                    updated,
+                    updated,
+                ),
             )
         conn.commit()
         conn.close()
@@ -464,7 +486,9 @@ def test_burn_rate_only_counts_recent(
             ("c2", "/p", "m", 9.0, _ms(old)),
         ]
     )
-    snap = build_db_snapshot(load_conversations(db), now=_NOW, tz=UTC, burn_window_min=15)
+    snap = build_db_snapshot(
+        load_conversations(db), now=_NOW, tz=UTC, burn_window_min=15
+    )
     assert snap.burn_rate_per_min == 0.01
 ```
 
@@ -503,7 +527,9 @@ def load_conversations(db_path: Path) -> list[ConversationRow]:
         cursor = conn.execute(
             "SELECT conversation_id, key, value, updated_at FROM conversations_v2"
         )
-        return [_parse_row(cid, key, value, updated) for cid, key, value, updated in cursor]
+        return [
+            _parse_row(cid, key, value, updated) for cid, key, value, updated in cursor
+        ]
 
 
 def _parse_row(cid: str, key: str, value: str, updated_at_ms: int) -> ConversationRow:
@@ -522,7 +548,9 @@ def _parse_row(cid: str, key: str, value: str, updated_at_ms: int) -> Conversati
         .get("env_state", {})
         .get("current_working_directory")
     )
-    return ConversationRow(cid, cwd or key, model_id, float(credits), int(updated_at_ms))
+    return ConversationRow(
+        cid, cwd or key, model_id, float(credits), int(updated_at_ms)
+    )
 ```
 
 Then add `build_db_snapshot`:
@@ -613,11 +641,17 @@ def usage_response() -> dict:
         },
         "usageBreakdownList": [
             {
-                "currentUsage": 11, "currentUsageWithPrecision": 11.21,
-                "usageLimit": 50, "usageLimitWithPrecision": 50.0,
-                "currentOveragesWithPrecision": 0.0, "overageCapWithPrecision": 10000.0,
-                "overageRate": 0.04, "resourceType": "CREDIT",
-                "displayName": "Credit", "currency": "USD", "freeTrialInfo": None,
+                "currentUsage": 11,
+                "currentUsageWithPrecision": 11.21,
+                "usageLimit": 50,
+                "usageLimitWithPrecision": 50.0,
+                "currentOveragesWithPrecision": 0.0,
+                "overageCapWithPrecision": 10000.0,
+                "overageRate": 0.04,
+                "resourceType": "CREDIT",
+                "displayName": "Credit",
+                "currency": "USD",
+                "freeTrialInfo": None,
             }
         ],
         "userInfo": {"email": "user@example.com"},
@@ -646,9 +680,11 @@ _NOW = datetime(2026, 7, 28, 12, 0, tzinfo=UTC)
 
 def _token() -> SocialToken:
     return SocialToken(
-        access_token="a", refresh_token="r",
+        access_token="a",
+        refresh_token="r",
         profile_arn="arn:aws:codewhisperer:us-east-1:1:profile/X",
-        expires_at=datetime(2026, 7, 28, 13, 0, tzinfo=UTC), region="us-east-1",
+        expires_at=datetime(2026, 7, 28, 13, 0, tzinfo=UTC),
+        region="us-east-1",
     )
 
 
@@ -660,7 +696,11 @@ def test_token_expired() -> None:
 
 def test_fetch_parses_official_fields(usage_response: dict) -> None:
     """A 200 response maps to AccountInfo with precise values."""
-    client = httpx.Client(transport=httpx.MockTransport(lambda _r: httpx.Response(200, json=usage_response)))
+    client = httpx.Client(
+        transport=httpx.MockTransport(
+            lambda _r: httpx.Response(200, json=usage_response)
+        )
+    )
     info = fetch_account_info(_token(), client=client, now=_NOW)
     assert info.used == 11.21
     assert info.limit == 50.0
@@ -672,7 +712,11 @@ def test_fetch_parses_official_fields(usage_response: dict) -> None:
 
 def test_fetch_403_raises_needs_login(usage_response: dict) -> None:
     """A 403 becomes NeedsLoginError."""
-    client = httpx.Client(transport=httpx.MockTransport(lambda _r: httpx.Response(403, text="bearer token invalid")))
+    client = httpx.Client(
+        transport=httpx.MockTransport(
+            lambda _r: httpx.Response(403, text="bearer token invalid")
+        )
+    )
     with pytest.raises(NeedsLoginError):
         fetch_account_info(_token(), client=client, now=_NOW)
 
@@ -765,10 +809,19 @@ _NOW = datetime(2026, 7, 15, 0, 0, tzinfo=UTC)
 
 def _account(used: float, limit: float) -> AccountInfo:
     return AccountInfo(
-        email="u@e.com", tier="FREE", sub_type="FREE", used=used, limit=limit,
-        overage_used=0.0, overage_cap=0.0, overage_rate=0.0, overage_enabled=False,
-        next_reset=datetime(2026, 8, 1, tzinfo=UTC), days_until_reset_api=17,
-        currency="USD", fetched_at=_NOW,
+        email="u@e.com",
+        tier="FREE",
+        sub_type="FREE",
+        used=used,
+        limit=limit,
+        overage_used=0.0,
+        overage_cap=0.0,
+        overage_rate=0.0,
+        overage_enabled=False,
+        next_reset=datetime(2026, 8, 1, tzinfo=UTC),
+        days_until_reset_api=17,
+        currency="USD",
+        fetched_at=_NOW,
     )
 
 
@@ -778,7 +831,9 @@ def _db(today: float) -> DbSnapshot:
 
 def test_target_and_actual_pace_calendar() -> None:
     """Target uses remaining/days-left, actual uses used/days-elapsed."""
-    pace = compute_pace(_account(used=14.0, limit=50.0), _db(1.0), AppConfig(), now=_NOW)
+    pace = compute_pace(
+        _account(used=14.0, limit=50.0), _db(1.0), AppConfig(), now=_NOW
+    )
     assert pace.mode == "calendar"
     # remaining 36 over 17 days
     assert round(pace.target_per_day, 2) == round(36 / 17, 2)
@@ -855,7 +910,9 @@ def _holidays_payload() -> list[dict]:
 def test_working_days_excludes_weekends_and_holidays(tmp_path: Path) -> None:
     """Working-day count skips Sat/Sun and public holidays."""
     client = httpx.Client(
-        transport=httpx.MockTransport(lambda _r: httpx.Response(200, json=_holidays_payload()))
+        transport=httpx.MockTransport(
+            lambda _r: httpx.Response(200, json=_holidays_payload())
+        )
     )
     provider = NagerHolidayProvider(client=client, cache_dir=tmp_path)
     # 2026-06-29 (Mon) .. 2026-07-06 (Mon): 5 weekdays minus Jul-4 (Sat anyway)
@@ -872,7 +929,9 @@ def test_workday_mode_sets_mode_and_uses_provider(tmp_path: Path) -> None:
     )
     provider = NagerHolidayProvider(client=client, cache_dir=tmp_path)
     cfg = AppConfig(workdays=True, country="US")
-    pace = compute_pace(_account(14.0, 50.0), _db(1.0), cfg, now=_NOW, holidays=provider)
+    pace = compute_pace(
+        _account(14.0, 50.0), _db(1.0), cfg, now=_NOW, holidays=provider
+    )
     assert pace.mode == "workday"
 ```
 
@@ -1026,19 +1085,50 @@ def _render(snap: Snapshot) -> str:
 
 
 def _db() -> DbSnapshot:
-    return DbSnapshot(0.31, 18, 0.12, 6, 0.02, (("/proj-a", 0.21),), (("haiku", 0.13),), (), approx=True)
+    return DbSnapshot(
+        0.31,
+        18,
+        0.12,
+        6,
+        0.02,
+        (("/proj-a", 0.21),),
+        (("haiku", 0.13),),
+        (),
+        approx=True,
+    )
 
 
 def _account() -> AccountInfo:
     return AccountInfo(
-        "u@e.com", "KIRO FREE", "FREE", 11.21, 50.0, 0.0, 10000.0, 0.04, False,
-        datetime(2026, 8, 1, tzinfo=UTC), 3, "USD", _NOW,
+        "u@e.com",
+        "KIRO FREE",
+        "FREE",
+        11.21,
+        50.0,
+        0.0,
+        10000.0,
+        0.04,
+        False,
+        datetime(2026, 8, 1, tzinfo=UTC),
+        3,
+        "USD",
+        _NOW,
     )
 
 
 def test_official_gauge_rendered_when_account_present() -> None:
     """The plan gauge shows used/limit and an official label."""
-    pace = PaceInfo("calendar", 2.1, 1.9, 0.15, 4.0, 27.0, None, non_working_today=False, holidays_available=True)
+    pace = PaceInfo(
+        "calendar",
+        2.1,
+        1.9,
+        0.15,
+        4.0,
+        27.0,
+        None,
+        non_working_today=False,
+        holidays_available=True,
+    )
     snap = Snapshot(_db(), _account(), "ok", pace, _NOW)
     text = _render(snap)
     assert "11.21" in text
@@ -1110,8 +1200,17 @@ def test_run_once_json_local_only(make_db, capsys) -> None:  # noqa: ANN001 -- p
     now = datetime(2026, 7, 28, 12, 0, tzinfo=UTC)
     db = make_db([("c1", "/p", "haiku", 0.02, int(now.timestamp() * 1000))])
     cfg = AppConfig(use_account=False)
-    code = run_once(cfg, db_path=db, client=httpx.Client(), cached_account=None,
-                    account_status="disabled", now=now, tz=UTC, holidays=None, as_json=True)
+    code = run_once(
+        cfg,
+        db_path=db,
+        client=httpx.Client(),
+        cached_account=None,
+        account_status="disabled",
+        now=now,
+        tz=UTC,
+        holidays=None,
+        as_json=True,
+    )
     out = capsys.readouterr().out
     assert '"today_credits"' in out
     assert code == 20  # no official data -> indeterminate

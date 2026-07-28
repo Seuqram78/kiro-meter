@@ -1,0 +1,43 @@
+[project]
+name = "kiro-usage"
+version = "0.1.0"
+description = "Privacy-first live TUI monitor for Kiro CLI credit usage"
+requires-python = ">=3.14"
+dependencies = ["rich>=13", "httpx>=0.27"]
+
+[project.scripts]
+kiro-usage = "kiro_usage.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/kiro_usage"]
+
+[dependency-groups]
+dev = ["pytest>=8", "ruff>=0.6", "complexipy>=1"]
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+  "D203",   # conflicts with D211 (ruff docs)
+  "D213",   # conflicts with D212 (ruff docs)
+  "COM812", # conflicts with ruff format (ruff docs)
+  "ISC001", # conflicts with ruff format (ruff docs)
+  "CPY001", # copyright header not required (maintainer decision)
+]
+
+# Test files legitimately break rules that only make sense for shipped code.
+# This is the single sanctioned per-file exception (maintainer decision).
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = [
+  "S101", # pytest assertions are the point of a test
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["tests"]
