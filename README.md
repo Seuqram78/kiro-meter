@@ -6,8 +6,8 @@ calls Kiro's account endpoint for your official plan limit, then shows how your
 consumption tracks against your billing cycle — with calendar-day or working-day
 pacing.
 
-> Status: in design / early development. See
-> [`docs/superpowers/specs`](docs/superpowers/specs/) for the design.
+> See [`docs/superpowers/specs`](docs/superpowers/specs/) for the design and
+> [`docs/superpowers/plans`](docs/superpowers/plans/) for the implementation plan.
 
 ## What it shows
 
@@ -30,6 +30,43 @@ uv tool install kiro-usage
 # or run without installing:
 uvx kiro-usage
 ```
+
+On first run it asks whether to pace against working days (and, if so, your
+country/region for public holidays) and saves the answer to
+`~/.kiro-usage/config.toml`.
+
+## Usage
+
+```sh
+kiro-usage                 # live monitor (Ctrl-C to quit)
+kiro-usage --once          # print one snapshot and exit
+kiro-usage --json          # machine-readable snapshot (implies --once)
+kiro-usage --no-account    # local SQLite only; skip the official limit call
+```
+
+| Flag | Effect |
+|------|--------|
+| `--once` | Print a single snapshot and exit instead of the live view. |
+| `--json` | Emit the snapshot as JSON (implies `--once`). |
+| `--no-account` | Skip the `getUsageLimits` call; render local spend only. |
+| `--refresh N` | Live refresh interval in seconds. |
+| `--timezone TZ` | Timezone for the "today" boundary (e.g. `America/Sao_Paulo`). |
+| `--reconfigure` | Re-run the first-time setup. |
+
+The official plan limit is fetched with whatever Kiro token is already on the
+machine — the tool never refreshes tokens itself. If the session is expired it
+shows a banner asking you to run `kiro-cli` (or `kiro-cli user login`) and keeps
+rendering local spend meanwhile.
+
+### Exit codes (`--once`)
+
+| Code | Meaning |
+|------|---------|
+| `0` | OK — below the near-limit threshold. |
+| `10` | Near the plan limit (≥ 90%). |
+| `11` | At or over the plan limit. |
+| `20` | Indeterminate — no official limit available. |
+| `30` | Error fetching the official limit. |
 
 ## Development
 
