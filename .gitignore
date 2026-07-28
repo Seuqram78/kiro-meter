@@ -12,8 +12,12 @@ venv/
 .ruff_cache/
 .pytest_cache/
 .mypy_cache/
+.complexipy_cache/
 .coverage
 htmlcov/
+
+# Build artifacts
+/dist/
 
 # Local config / caches produced by the tool at runtime
 /.kiro-usage/

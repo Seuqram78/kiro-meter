@@ -1,9 +1,26 @@
 [project]
 name = "kiro-usage"
 version = "0.1.0"
-description = "Privacy-first live TUI monitor for Kiro CLI credit usage"
+description = "Personal, unofficial live TUI monitor for Kiro CLI credit usage"
+readme = "README.md"
 requires-python = ">=3.14"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Rodrigo Marques", email = "romadasilva@protonmail.com" }]
+keywords = ["kiro", "credits", "usage", "cli", "tui", "monitor"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3.14",
+  "Topic :: Utilities",
+]
 dependencies = ["rich>=13", "httpx>=0.27"]
+
+[project.urls]
+Homepage = "https://github.com/Seuqram78/kiro-usage"
+Repository = "https://github.com/Seuqram78/kiro-usage"
+Issues = "https://github.com/Seuqram78/kiro-usage/issues"
 
 [project.scripts]
 kiro-usage = "kiro_usage.cli:main"
