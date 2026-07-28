@@ -80,3 +80,31 @@ def test_needs_login_banner_shown_and_local_still_rendered() -> None:
     text = _render(snap)
     assert "kiro-cli" in text.lower()
     assert "0.31" in text
+
+
+def _render_with_frame(snap: Snapshot, frame: int) -> str:
+    console = Console(width=_CONSOLE_WIDTH, record=True)
+    console.print(render_snapshot(snap, AppConfig(), frame=frame))
+    return console.export_text()
+
+
+def test_footer_shows_auto_refresh_when_frame_given() -> None:
+    """A frame renders the animated auto-refresh footer."""
+    snap = Snapshot(_db(), _account(), "ok", _pace(), _NOW)
+    text = _render_with_frame(snap, 0)
+    assert "auto-refresh" in text
+    assert "Ctrl-C" in text
+
+
+def test_no_footer_without_frame() -> None:
+    """One-shot rendering (no frame) has no auto-refresh footer."""
+    snap = Snapshot(_db(), _account(), "ok", _pace(), _NOW)
+    assert "auto-refresh" not in _render(snap)
+
+
+def test_spinner_advances_with_frame() -> None:
+    """Different frames select different spinner glyphs."""
+    snap = Snapshot(_db(), _account(), "ok", _pace(), _NOW)
+    first = _render_with_frame(snap, 0).splitlines()[-2]
+    second = _render_with_frame(snap, 1).splitlines()[-2]
+    assert first != second

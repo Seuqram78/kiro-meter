@@ -22,18 +22,26 @@ if TYPE_CHECKING:
 
 _BAR_WIDTH = 16
 _PERCENT = 100.0
+_SPINNER = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
 _LOGIN_HINT = (
     "Kiro session expired - run kiro-cli (or kiro-cli user login) "
     "to refresh, then press r."
 )
 
 
-def render_snapshot(snap: Snapshot, cfg: AppConfig) -> RenderableType:
+def render_snapshot(
+    snap: Snapshot,
+    cfg: AppConfig,
+    *,
+    frame: int | None = None,
+) -> RenderableType:
     """Turn a Snapshot into a titled panel of usage sections.
 
     Args:
         snap: The merged snapshot to display.
-        cfg: Runtime configuration (currently used for the title).
+        cfg: Runtime configuration (title and refresh interval).
+        frame: Live-view tick counter; when set, an animated auto-refresh
+            footer is drawn. ``None`` (one-shot) draws no footer.
 
     Returns:
         A rich renderable ready to hand to ``Console.print`` or ``Live``.
@@ -50,7 +58,20 @@ def render_snapshot(snap: Snapshot, cfg: AppConfig) -> RenderableType:
         sections.append(_breakdowns(snap.db))
     if snap.db.recent:
         sections.append(_recent_table(snap.db))
+    if frame is not None:
+        sections.append(_footer(snap, cfg, frame))
     return Panel(Group(*sections), title=_title(snap, cfg), title_align="left")
+
+
+def _footer(snap: Snapshot, cfg: AppConfig, frame: int) -> RenderableType:
+    """Render the animated auto-refresh status line."""
+    glyph = _SPINNER[frame % len(_SPINNER)]
+    updated = snap.generated_at.astimezone().strftime("%H:%M:%S")
+    line = (
+        f"{glyph} auto-refresh {cfg.refresh_seconds}s | "
+        f"updated {updated} | Ctrl-C to quit"
+    )
+    return Text(line, style="dim")
 
 
 def _title(snap: Snapshot, cfg: AppConfig) -> str:

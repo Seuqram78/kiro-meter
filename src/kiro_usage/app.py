@@ -31,6 +31,7 @@ if TYPE_CHECKING:
     from kiro_usage.models import AccountInfo, AccountStatus, AppConfig
     from kiro_usage.pace import HolidayProvider
 
+_TICK_SECONDS = 0.5
 _NEAR_LIMIT_FRACTION = 0.9
 _EXIT_OK = 0
 _EXIT_NEAR_LIMIT = 10
@@ -104,10 +105,13 @@ def run_live(
     *,
     now_fn: Callable[[], datetime],
 ) -> None:
-    """Poll local spend and refresh the official limit on a slower cadence."""
+    """Animate a spinner each tick; poll spend and the limit on slower cadences."""
     account: AccountInfo | None = None
     status: AccountStatus = "disabled"
+    snap: Snapshot | None = None
     last_fetch = 0.0
+    last_poll = 0.0
+    frame = 0
     with Live(auto_refresh=False, screen=False) as live:
         try:
             while True:
@@ -119,11 +123,14 @@ def run_live(
                 ):
                     account, status = resolve_account(cfg, ctx, now=now)
                     last_fetch = monotonic
-                snap = build_snapshot(
-                    cfg, ctx, account=account, account_status=status, now=now
-                )
-                live.update(render_snapshot(snap, cfg), refresh=True)
-                time.sleep(cfg.refresh_seconds)
+                if snap is None or monotonic - last_poll >= cfg.refresh_seconds:
+                    snap = build_snapshot(
+                        cfg, ctx, account=account, account_status=status, now=now
+                    )
+                    last_poll = monotonic
+                live.update(render_snapshot(snap, cfg, frame=frame), refresh=True)
+                frame += 1
+                time.sleep(_TICK_SECONDS)
         except KeyboardInterrupt:
             pass
 
