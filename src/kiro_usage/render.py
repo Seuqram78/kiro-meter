@@ -46,7 +46,8 @@ def render_snapshot(snap: Snapshot, cfg: AppConfig) -> RenderableType:
         sections.extend(_pace_lines(snap.pace))
     if snap.db.burn_rate_per_min is not None:
         sections.append(_burn_line(snap.db.burn_rate_per_min))
-    sections.append(_breakdowns(snap.db))
+    if snap.db.by_folder or snap.db.by_model:
+        sections.append(_breakdowns(snap.db))
     if snap.db.recent:
         sections.append(_recent_table(snap.db))
     return Panel(Group(*sections), title=_title(snap, cfg), title_align="left")
