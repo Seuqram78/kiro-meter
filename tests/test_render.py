@@ -97,7 +97,10 @@ def test_needs_login_banner_shown_and_local_still_rendered() -> None:
 def _footer_of(snap: Snapshot, countdown: float) -> str:
     console = Console(width=_CONSOLE_WIDTH, record=True)
     console.print(render_snapshot(snap, AppConfig(), countdown=countdown))
-    return console.export_text().splitlines()[-2]
+    lines = [
+        line for line in console.export_text().splitlines() if "next reading" in line
+    ]
+    return lines[0]
 
 
 def test_footer_shows_live_status_and_next_reading() -> None:

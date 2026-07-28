@@ -54,19 +54,39 @@ def render_snapshot(
     Returns:
         A rich renderable ready to hand to ``Console.print`` or ``Live``.
     """
-    sections: list[RenderableType] = [
-        _account_section(snap),
-        _today_line(snap.db, snap.pace),
-    ]
+    official: list[RenderableType] = [_account_section(snap)]
+
+    budget: list[RenderableType] = [_today_line(snap.db, snap.pace)]
     if snap.pace is not None:
-        sections.extend(_pace_lines(snap.pace))
+        budget.extend(_pace_lines(snap.pace))
     if snap.db.burn_rate_per_min is not None:
-        sections.append(_burn_line(snap.db.burn_rate_per_min))
+        budget.append(_burn_line(snap.db.burn_rate_per_min))
+
+    groups = [official, budget]
     if snap.db.by_folder_model:
-        sections.append(_usage_table(snap.db))
+        groups.append([_usage_table(snap.db)])
     if countdown is not None:
-        sections.append(_footer(snap, countdown))
-    return Panel(Group(*sections), title=_title(snap, cfg), title_align="left")
+        groups.append([_footer(snap, countdown)])
+
+    body = _stack(groups)
+    return Panel(
+        body,
+        title=_title(snap, cfg),
+        title_align="left",
+        padding=(1, 2),
+    )
+
+
+def _stack(groups: list[list[RenderableType]]) -> RenderableType:
+    """Join non-empty groups vertically, separated by a blank line."""
+    rendered: list[RenderableType] = []
+    for group in groups:
+        if not group:
+            continue
+        if rendered:
+            rendered.append(Text(""))
+        rendered.extend(group)
+    return Group(*rendered)
 
 
 def _footer(snap: Snapshot, countdown: float) -> RenderableType:
