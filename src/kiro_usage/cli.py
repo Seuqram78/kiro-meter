@@ -18,9 +18,11 @@ from kiro_usage.config import (
     save_config,
 )
 from kiro_usage.db import DEFAULT_DB_PATH
-from kiro_usage.pace import NagerHolidayProvider
+from kiro_usage.pace import HolidayUnavailableError, NagerHolidayProvider
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from kiro_usage.models import AppConfig
 
 
@@ -34,10 +36,10 @@ def main(argv: list[str] | None = None) -> int:
         A process exit code.
     """
     args = _parse_args(argv)
-    cfg = _resolve_config(args)
-    local_tz = datetime.now(UTC).astimezone().tzinfo
-    tz = ZoneInfo(cfg.timezone) if cfg.timezone else local_tz
     with httpx.Client() as client:
+        cfg = _resolve_config(args, client=client)
+        local_tz = datetime.now(UTC).astimezone().tzinfo
+        tz = ZoneInfo(cfg.timezone) if cfg.timezone else local_tz
         holidays = (
             NagerHolidayProvider(client=client, cache_dir=CONFIG_PATH.parent)
             if cfg.workdays
@@ -75,11 +77,11 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     return parsed
 
 
-def _resolve_config(args: argparse.Namespace) -> AppConfig:
+def _resolve_config(args: argparse.Namespace, *, client: httpx.Client) -> AppConfig:
     """Load or create config, then apply command-line overrides."""
     cfg = load_config()
     if cfg is None or args.reconfigure:
-        cfg = run_first_time_setup()
+        cfg = run_first_time_setup(list_regions=_region_lister(client))
         save_config(cfg)
     return dataclasses.replace(
         cfg,
@@ -87,3 +89,18 @@ def _resolve_config(args: argparse.Namespace) -> AppConfig:
         refresh_seconds=args.refresh or cfg.refresh_seconds,
         timezone=args.timezone or cfg.timezone,
     )
+
+
+def _region_lister(client: httpx.Client) -> Callable[[str], list[str]]:
+    """Build a region lister backed by the holiday API for the current year."""
+    provider = NagerHolidayProvider(client=client, cache_dir=CONFIG_PATH.parent)
+    year = datetime.now(UTC).year
+
+    def lister(country: str) -> list[str]:
+        """Return the country's subdivision codes, or none if unavailable."""
+        try:
+            return provider.available_regions(country, year)
+        except HolidayUnavailableError:
+            return []
+
+    return lister

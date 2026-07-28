@@ -24,13 +24,40 @@ def test_load_missing_returns_none(tmp_path: Path) -> None:
     assert load_config(tmp_path / "nope.toml") is None
 
 
-def test_setup_workdays_yes_collects_location() -> None:
-    """Answering yes collects country and region."""
-    answers = iter(["y", "BR", "SP"])
-    cfg = run_first_time_setup(prompt=lambda _p: next(answers), detect=lambda: "BR")
+def test_setup_workdays_yes_picks_region_from_list() -> None:
+    """Answering yes collects country and a region chosen from the suggestions."""
+    answers = iter(["y", "BR", "2"])
+    cfg = run_first_time_setup(
+        prompt=lambda _p: next(answers),
+        detect=lambda: "BR",
+        list_regions=lambda _c: ["BR-SP", "BR-RJ"],
+    )
     assert cfg.workdays is True
     assert cfg.country == "BR"
-    assert cfg.region == "SP"
+    assert cfg.region == "BR-RJ"
+
+
+def test_setup_skips_region_when_none_available() -> None:
+    """A country with no regional holidays does not prompt for a region."""
+    answers = iter(["y", "BR"])
+    cfg = run_first_time_setup(
+        prompt=lambda _p: next(answers),
+        detect=lambda: "BR",
+        list_regions=lambda _c: [],
+    )
+    assert cfg.country == "BR"
+    assert cfg.region is None
+
+
+def test_setup_region_blank_skips() -> None:
+    """Pressing Enter at the region prompt leaves region unset."""
+    answers = iter(["y", "BR", ""])
+    cfg = run_first_time_setup(
+        prompt=lambda _p: next(answers),
+        detect=lambda: "BR",
+        list_regions=lambda _c: ["BR-SP", "BR-RJ"],
+    )
+    assert cfg.region is None
 
 
 def test_setup_workdays_no_uses_calendar() -> None:

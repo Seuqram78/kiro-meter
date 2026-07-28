@@ -72,16 +72,24 @@ def detect_country() -> str | None:
     return None
 
 
+def _no_regions(_country: str) -> list[str]:
+    """Default region lister that offers no suggestions."""
+    return []
+
+
 def run_first_time_setup(
     *,
     prompt: Callable[[str], str] = input,
     detect: Callable[[], str | None] = detect_country,
+    list_regions: Callable[[str], list[str]] = _no_regions,
 ) -> AppConfig:
     """Interactively collect first-run configuration.
 
     Args:
         prompt: Function used to ask the user a question (injectable for tests).
         detect: Function returning the default country code.
+        list_regions: Function returning the subdivision codes that have
+            holidays for a country, used to suggest a region.
 
     Returns:
         The configuration chosen by the user.
@@ -91,9 +99,31 @@ def run_first_time_setup(
         return AppConfig()
     default_country = detect()
     country = prompt(f"Country for holidays [{default_country or ''}]: ").strip()
-    region = prompt("Region/state (optional): ").strip()
+    country = country or default_country
     return AppConfig(
         workdays=True,
-        country=country or default_country,
-        region=region or None,
+        country=country,
+        region=_choose_region(prompt, list_regions, country),
     )
+
+
+def _choose_region(
+    prompt: Callable[[str], str],
+    list_regions: Callable[[str], list[str]],
+    country: str | None,
+) -> str | None:
+    """Offer the country's holiday regions and return the chosen code."""
+    if not country:
+        return None
+    regions = list_regions(country)
+    if not regions:
+        return None
+    listing = "  ".join(
+        f"{index}) {code}" for index, code in enumerate(regions, start=1)
+    )
+    answer = prompt(
+        f"Regions with holidays:\n  {listing}\nPick a number (or Enter to skip): "
+    ).strip()
+    if answer.isdigit() and 1 <= int(answer) <= len(regions):
+        return regions[int(answer) - 1]
+    return None

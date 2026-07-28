@@ -76,6 +76,14 @@ class NagerHolidayProvider:
             day += _ONE_DAY
         return count
 
+    def available_regions(self, country: str, year: int) -> list[str]:
+        """Return the sorted subdivision codes that have holidays that year."""
+        codes: set[str] = set()
+        for _holiday_date, counties, _is_global in self._holidays(year, country):
+            if counties is not None:
+                codes.update(counties)
+        return sorted(codes)
+
     def _is_holiday(self, day: date, country: str, region: str | None) -> bool:
         """Return whether ``day`` is a public holiday for the country/region."""
         for holiday_date, counties, is_global in self._holidays(day.year, country):

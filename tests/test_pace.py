@@ -89,6 +89,20 @@ def test_working_days_excludes_weekends_and_holidays(tmp_path: Path) -> None:
     assert count == _EXPECTED_WORKING_DAYS
 
 
+def test_available_regions_lists_subdivision_codes(tmp_path: Path) -> None:
+    """available_regions returns the sorted distinct subdivision codes."""
+    payload = [
+        {"date": "2026-01-01", "global": True, "counties": None},
+        {"date": "2026-07-09", "global": False, "counties": ["BR-SP"]},
+        {"date": "2026-11-20", "global": False, "counties": ["BR-SP", "BR-RJ"]},
+    ]
+    client = httpx.Client(
+        transport=httpx.MockTransport(lambda _r: httpx.Response(200, json=payload))
+    )
+    provider = NagerHolidayProvider(client=client, cache_dir=tmp_path)
+    assert provider.available_regions("BR", 2026) == ["BR-RJ", "BR-SP"]
+
+
 def test_workday_mode_sets_mode_and_uses_provider(tmp_path: Path) -> None:
     """Workday mode is reflected in PaceInfo.mode."""
     client = httpx.Client(
