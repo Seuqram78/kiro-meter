@@ -38,6 +38,37 @@ def _conversation_json(cwd: str, model: str, credit: float) -> str:
 
 
 @pytest.fixture
+def usage_response() -> dict[str, object]:
+    """A sanitized getUsageLimits response body."""
+    return {
+        "daysUntilReset": 3,
+        "nextDateReset": 1785542400.0,
+        "overageConfiguration": {"overageLimit": None, "overageStatus": "DISABLED"},
+        "subscriptionInfo": {
+            "overageCapability": "OVERAGE_INCAPABLE",
+            "subscriptionTitle": "KIRO FREE",
+            "type": "Q_DEVELOPER_STANDALONE_FREE",
+        },
+        "usageBreakdownList": [
+            {
+                "currentUsage": 11,
+                "currentUsageWithPrecision": 11.21,
+                "usageLimit": 50,
+                "usageLimitWithPrecision": 50.0,
+                "currentOveragesWithPrecision": 0.0,
+                "overageCapWithPrecision": 10000.0,
+                "overageRate": 0.04,
+                "resourceType": "CREDIT",
+                "displayName": "Credit",
+                "currency": "USD",
+                "freeTrialInfo": None,
+            },
+        ],
+        "userInfo": {"email": "user@example.com"},
+    }
+
+
+@pytest.fixture
 def make_db(tmp_path: Path) -> Callable[[list[ConversationSpec]], Path]:
     """Return a builder that writes a synthetic kiro-cli SQLite database."""
 
