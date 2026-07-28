@@ -139,7 +139,7 @@ def _as_dict(snap: Snapshot) -> dict[str, object]:
         "used": account.used if account else None,
         "limit": account.limit if account else None,
         "allowance_per_day": pace.allowance_per_day if pace else None,
-        "actual_per_day": pace.actual_per_day if pace else None,
+        "can_spend_per_day": pace.can_spend_per_day if pace else None,
     }
 
 

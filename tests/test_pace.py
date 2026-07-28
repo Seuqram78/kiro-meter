@@ -56,8 +56,8 @@ def test_allowance_and_actual_pace_calendar() -> None:
         _LIMIT / _CYCLE_DAYS, _NDIGITS
     )
     # actual = remaining 36 over 17 days left (Jul 15 -> Aug 1)
-    assert pace.actual_per_day is not None
-    assert round(pace.actual_per_day, _NDIGITS) == round(
+    assert pace.can_spend_per_day is not None
+    assert round(pace.can_spend_per_day, _NDIGITS) == round(
         _REMAINING / _DAYS_LEFT, _NDIGITS
     )
 
@@ -68,7 +68,7 @@ def test_actual_pace_none_when_reset_imminent() -> None:
     pace = compute_pace(
         _account(used=40.0, limit=_LIMIT), _db(0.0), AppConfig(), now=now
     )
-    assert pace.actual_per_day is None
+    assert pace.can_spend_per_day is None
 
 
 def _holidays_payload() -> list[dict[str, object]]:

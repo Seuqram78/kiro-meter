@@ -69,7 +69,7 @@ class PaceInfo:
 
     mode: PaceMode
     allowance_per_day: float | None
-    actual_per_day: float | None
+    can_spend_per_day: float | None
     today_fraction: float | None
     days_until_reset: float
     days_elapsed: float

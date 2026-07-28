@@ -92,14 +92,16 @@ def _today_line(db: DbSnapshot, pace: PaceInfo | None) -> RenderableType:
 
 
 def _pace_lines(pace: PaceInfo) -> list[RenderableType]:
-    """Render the allowance and actual pace lines."""
+    """Render the allowance and can-spend pace lines."""
     lines: list[RenderableType] = []
     if pace.allowance_per_day is not None:
         allowance = f"Pace  allowance {pace.allowance_per_day:.2f} cr/day (even budget)"
         lines.append(Text(allowance, style="dim"))
-    if pace.actual_per_day is not None:
-        actual = f"      actual    {pace.actual_per_day:.2f} cr/day (affordable now)"
-        lines.append(Text(actual, style="dim"))
+    if pace.can_spend_per_day is not None:
+        can_spend = (
+            f"      can spend {pace.can_spend_per_day:.2f} cr/day (rest of cycle)"
+        )
+        lines.append(Text(can_spend, style="dim"))
     return lines
 
 

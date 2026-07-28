@@ -1,4 +1,4 @@
-"""Compute target and actual pace against the billing cycle."""
+"""Compute allowance and can-spend pace against the billing cycle."""
 
 from __future__ import annotations
 
@@ -178,7 +178,7 @@ def compute_pace(
     return PaceInfo(
         mode=mode,
         allowance_per_day=allowance,
-        actual_per_day=actual,
+        can_spend_per_day=actual,
         today_fraction=today_fraction,
         days_until_reset=calendar_until,
         days_elapsed=calendar_elapsed,
