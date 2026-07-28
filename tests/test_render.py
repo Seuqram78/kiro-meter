@@ -82,29 +82,30 @@ def test_needs_login_banner_shown_and_local_still_rendered() -> None:
     assert "0.31" in text
 
 
-def _render_with_frame(snap: Snapshot, frame: int) -> str:
+def _footer_of(snap: Snapshot, countdown: float) -> str:
     console = Console(width=_CONSOLE_WIDTH, record=True)
-    console.print(render_snapshot(snap, AppConfig(), frame=frame))
-    return console.export_text()
+    console.print(render_snapshot(snap, AppConfig(), countdown=countdown))
+    return console.export_text().splitlines()[-2]
 
 
-def test_footer_shows_auto_refresh_when_frame_given() -> None:
-    """A frame renders the animated auto-refresh footer."""
+def test_footer_shows_live_status_and_next_reading() -> None:
+    """A countdown renders the live status line with the next-reading meter."""
     snap = Snapshot(_db(), _account(), "ok", _pace(), _NOW)
-    text = _render_with_frame(snap, 0)
-    assert "auto-refresh" in text
-    assert "Ctrl-C" in text
+    footer = _footer_of(snap, 0.0)
+    assert "live" in footer
+    assert "next reading" in footer
+    assert "Ctrl-C" in footer
 
 
-def test_no_footer_without_frame() -> None:
-    """One-shot rendering (no frame) has no auto-refresh footer."""
+def test_no_footer_without_countdown() -> None:
+    """One-shot rendering (no countdown) has no live footer."""
     snap = Snapshot(_db(), _account(), "ok", _pace(), _NOW)
-    assert "auto-refresh" not in _render(snap)
+    assert "next reading" not in _render(snap)
 
 
-def test_spinner_advances_with_frame() -> None:
-    """Different frames select different spinner glyphs."""
+def test_countdown_bar_fills_over_time() -> None:
+    """A larger countdown fraction fills more of the next-reading bar."""
     snap = Snapshot(_db(), _account(), "ok", _pace(), _NOW)
-    first = _render_with_frame(snap, 0).splitlines()[-2]
-    second = _render_with_frame(snap, 1).splitlines()[-2]
-    assert first != second
+    early = _footer_of(snap, 0.1).count("█")
+    late = _footer_of(snap, 0.9).count("█")
+    assert late > early
