@@ -18,10 +18,12 @@ _NOW = datetime(2026, 7, 28, 12, 0, tzinfo=UTC)
 
 _EXPECTED_ONE_CREDIT = 0.02
 _EXPECTED_TODAY_TOTAL = 0.10
-_EXPECTED_TOP_FOLDER = ("/proj-a", 0.07)
+_EXPECTED_TOP_GROUP = ("/proj-a", "haiku-4.5", 2)
+_EXPECTED_TOP_CREDITS = 0.07
 _EXPECTED_BURN = 0.01
 _EXPECTED_TURNS = 3
 _BURN_WINDOW_MIN = 15
+_NDIGITS = 2
 
 
 def _ms(dt: datetime) -> int:
@@ -52,9 +54,11 @@ def test_snapshot_aggregates_today_and_breakdowns(
         ],
     )
     snap = build_db_snapshot(load_conversations(db), now=_NOW, tz=UTC)
-    assert round(snap.today_credits, 2) == _EXPECTED_TODAY_TOTAL
+    assert round(snap.today_credits, _NDIGITS) == _EXPECTED_TODAY_TOTAL
     assert snap.today_turns == _EXPECTED_TURNS
-    assert snap.by_folder[0] == _EXPECTED_TOP_FOLDER
+    top = snap.by_folder_model[0]
+    assert top[:3] == _EXPECTED_TOP_GROUP
+    assert round(top[3], _NDIGITS) == _EXPECTED_TOP_CREDITS
     assert snap.approx is True
 
 

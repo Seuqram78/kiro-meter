@@ -11,7 +11,6 @@ from typing import TYPE_CHECKING
 from kiro_usage.models import ConversationRow, DbSnapshot
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
     from datetime import date, tzinfo
 
 DEFAULT_DB_PATH: Path = Path.home() / ".local/share/kiro-cli/data.sqlite3"
@@ -101,8 +100,7 @@ def build_db_snapshot(
         session_credits=session.credits if session else 0.0,
         session_turns=1 if session else 0,
         burn_rate_per_min=burn,
-        by_folder=_top(today_rows, key=lambda r: r.folder, n=top_n),
-        by_model=_top(today_rows, key=lambda r: r.model_id or "unknown", n=top_n),
+        by_folder_model=_by_folder_model(rows, n=top_n),
         recent=tuple(ordered[:top_n]),
         approx=True,
     )
@@ -113,15 +111,20 @@ def _local_date(updated_at_ms: int, tz: tzinfo) -> date:
     return datetime.fromtimestamp(updated_at_ms / _MS_PER_SECOND, tz=tz).date()
 
 
-def _top(
+def _by_folder_model(
     rows: list[ConversationRow],
     *,
-    key: Callable[[ConversationRow], str],
     n: int,
-) -> tuple[tuple[str, float], ...]:
-    """Sum credits grouped by ``key`` and return the top ``n`` descending."""
-    totals: dict[str, float] = {}
+) -> tuple[tuple[str, str, int, float], ...]:
+    """Group credits and turn counts by (folder, model), top ``n`` descending."""
+    turns: dict[tuple[str, str], int] = {}
+    totals: dict[tuple[str, str], float] = {}
     for row in rows:
-        totals[key(row)] = totals.get(key(row), 0.0) + row.credits
+        key = (row.folder, row.model_id or "unknown")
+        turns[key] = turns.get(key, 0) + 1
+        totals[key] = totals.get(key, 0.0) + row.credits
     ranked = sorted(totals.items(), key=lambda item: item[1], reverse=True)
-    return tuple(ranked[:n])
+    return tuple(
+        (folder, model, turns[folder, model], total)
+        for (folder, model), total in ranked[:n]
+    )

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from rich.console import Group
@@ -23,8 +24,12 @@ if TYPE_CHECKING:
 _BAR_WIDTH = 16
 _PERCENT = 100.0
 _COUNTDOWN_WIDTH = 12
+_USAGE_BAR_WIDTH = 8
+_FOLDER_WIDTH = 22
 _EIGHTHS = 8
 _PARTIALS = "▏▎▍▌▋▊▉"
+_PCT_NEAR_LIMIT = 75.0
+_PCT_AT_LIMIT = 100.0
 _LOGIN_HINT = (
     "Kiro session expired - run kiro-cli (or kiro-cli user login) "
     "to refresh, then press r."
@@ -57,10 +62,8 @@ def render_snapshot(
         sections.extend(_pace_lines(snap.pace))
     if snap.db.burn_rate_per_min is not None:
         sections.append(_burn_line(snap.db.burn_rate_per_min))
-    if snap.db.by_folder or snap.db.by_model:
-        sections.append(_breakdowns(snap.db))
-    if snap.db.recent:
-        sections.append(_recent_table(snap.db))
+    if snap.db.by_folder_model:
+        sections.append(_usage_table(snap.db))
     if countdown is not None:
         sections.append(_footer(snap, countdown))
     return Panel(Group(*sections), title=_title(snap, cfg), title_align="left")
@@ -106,15 +109,27 @@ def _account_section(snap: Snapshot) -> RenderableType:
 
 
 def _plan_gauge(account: AccountInfo) -> RenderableType:
-    """Render the used/limit bar with the reset date, labelled official."""
+    """Render the used/limit bar with the reset date, coloured by usage state."""
     pct = account.used / account.limit * _PERCENT if account.limit else 0.0
+    style = _usage_style(pct)
     bar = _bar(pct / _PERCENT)
     reset = account.next_reset.strftime("%b %d")
     return Text.assemble(
         ("Plan  ", "bold"),
-        f"{bar}  {account.used:.2f} / {account.limit:.2f} cr  {pct:.0f}%\n",
+        (bar, style),
+        (f"  {account.used:.2f} / {account.limit:.2f} cr  ", ""),
+        (f"{pct:.0f}%\n", f"bold {style}"),
         (f"      resets {reset} (official)", "dim"),
     )
+
+
+def _usage_style(pct: float) -> str:
+    """Green under load, amber near the limit, red at or over it."""
+    if pct >= _PCT_AT_LIMIT:
+        return "red"
+    if pct >= _PCT_NEAR_LIMIT:
+        return "yellow"
+    return "green"
 
 
 def _today_line(db: DbSnapshot, pace: PaceInfo | None) -> RenderableType:
@@ -146,35 +161,48 @@ def _burn_line(burn_rate_per_min: float) -> RenderableType:
     return Text(f"Burn  {burn_rate_per_min:.3f} cr/min (local)", style="dim")
 
 
-def _breakdowns(db: DbSnapshot) -> RenderableType:
-    """Render side-by-side folder and model credit tables."""
-    grid = Table.grid(padding=(0, 4))
-    grid.add_row(
-        _labelled_table("By folder", db.by_folder),
-        _labelled_table("By model", db.by_model),
+def _usage_table(db: DbSnapshot) -> RenderableType:
+    """Render a bar chart of credits grouped by folder and model."""
+    peak = max(amount for *_, amount in db.by_folder_model)
+    table = Table(
+        title="Usage by folder & model (local)",
+        title_justify="left",
+        title_style="dim",
+        box=None,
+        pad_edge=False,
+        padding=(0, 2, 0, 0),
     )
-    return grid
-
-
-def _labelled_table(heading: str, rows: tuple[tuple[str, float], ...]) -> Table:
-    """Build a two-column credits table with a heading."""
-    table = Table(title=heading, title_justify="left", show_edge=False, pad_edge=False)
-    table.add_column("name")
+    table.add_column(
+        "folder", overflow="ellipsis", max_width=_FOLDER_WIDTH, no_wrap=True
+    )
+    table.add_column("model", no_wrap=True, style="dim")
+    table.add_column("", no_wrap=True)
     table.add_column("cr", justify="right")
-    for name, amount in rows:
-        table.add_row(name, f"{amount:.2f}")
+    table.add_column("turns", justify="right", style="dim")
+    for folder, model, turns, amount in db.by_folder_model:
+        proportion = amount / peak if peak else 0.0
+        table.add_row(
+            _short_folder(folder),
+            model,
+            Text(_proportion_bar(proportion), style="cyan"),
+            f"{amount:.2f}",
+            str(turns),
+        )
     return table
 
 
-def _recent_table(db: DbSnapshot) -> RenderableType:
-    """Render the most recent turns."""
-    table = Table(title="Recent", title_justify="left", show_edge=False, pad_edge=False)
-    table.add_column("folder")
-    table.add_column("model")
-    table.add_column("cr", justify="right")
-    for row in db.recent:
-        table.add_row(row.folder, row.model_id or "unknown", f"{row.credits:.3f}")
-    return table
+def _short_folder(folder: str) -> str:
+    """Abbreviate the home directory to ``~`` for a compact folder label."""
+    home = str(Path.home())
+    if folder == home or folder.startswith(home + "/"):
+        return "~" + folder[len(home) :]
+    return folder
+
+
+def _proportion_bar(fraction: float) -> str:
+    """Render a small solid bar sized to ``fraction`` of the column width."""
+    filled = round(max(0.0, min(fraction, 1.0)) * _USAGE_BAR_WIDTH)
+    return "▇" * filled + " " * (_USAGE_BAR_WIDTH - filled)
 
 
 def _bar(fraction: float) -> str:

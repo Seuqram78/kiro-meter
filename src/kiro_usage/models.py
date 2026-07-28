@@ -38,8 +38,7 @@ class DbSnapshot:
     session_credits: float
     session_turns: int
     burn_rate_per_min: float | None
-    by_folder: tuple[tuple[str, float], ...]
-    by_model: tuple[tuple[str, float], ...]
+    by_folder_model: tuple[tuple[str, str, int, float], ...]
     recent: tuple[ConversationRow, ...]
     approx: bool
 

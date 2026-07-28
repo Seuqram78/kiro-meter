@@ -26,8 +26,10 @@ def _db() -> DbSnapshot:
         session_credits=0.12,
         session_turns=6,
         burn_rate_per_min=0.02,
-        by_folder=(("/proj-a", 0.21),),
-        by_model=(("haiku", 0.13),),
+        by_folder_model=(
+            ("/home/me/proj-a", "sonnet-4.5", 8, 0.21),
+            ("/home/me/proj-b", "haiku-4.5", 12, 0.10),
+        ),
         recent=(),
         approx=True,
     )
@@ -72,6 +74,16 @@ def test_official_gauge_rendered_when_account_present() -> None:
     assert "11.21" in text
     assert "50" in text
     assert "official" in text.lower()
+
+
+def test_usage_table_aggregates_folder_and_model() -> None:
+    """The usage table shows each folder, its model, credits, and turns."""
+    snap = Snapshot(_db(), _account(), "ok", _pace(), _NOW)
+    text = _render(snap)
+    assert "proj-a" in text
+    assert "sonnet-4.5" in text
+    assert "0.21" in text
+    assert "12" in text  # turn count for proj-b/haiku
 
 
 def test_needs_login_banner_shown_and_local_still_rendered() -> None:

@@ -41,7 +41,7 @@ def _account(used: float, limit: float) -> AccountInfo:
 
 
 def _db(today: float) -> DbSnapshot:
-    return DbSnapshot(today, 1, today, 1, None, (), (), (), approx=True)
+    return DbSnapshot(today, 1, today, 1, None, (), (), approx=True)
 
 
 def test_allowance_and_actual_pace_calendar() -> None:
