@@ -46,7 +46,7 @@ uv tool install git+https://github.com/Seuqram78/kiro-usage
 uvx --from git+https://github.com/Seuqram78/kiro-usage kiro-usage
 
 # pin to a release
-uv tool install git+https://github.com/Seuqram78/kiro-usage@v0.1.0
+uv tool install git+https://github.com/Seuqram78/kiro-usage@v26.7.0
 ```
 
 Needs **Python 3.14** (uv will provision it automatically).
@@ -62,7 +62,8 @@ uv tool upgrade kiro-usage
 uv tool install --force git+https://github.com/Seuqram78/kiro-usage
 ```
 
-A `@v0.1.0`-pinned install won't cross the tag; install a newer tag to move.
+A `@v26.7.0`-pinned install won't cross the tag; install a newer tag to move.
+Releases use calendar versioning: `YY.M.PATCH` (e.g. `26.7.0` = 2026-07, patch 0).
 
 On first run it asks whether to pace against working days (and, if so, your
 country/region for public holidays, suggested from a list) and saves the answer
