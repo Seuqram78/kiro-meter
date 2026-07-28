@@ -207,13 +207,20 @@ Isolated, independently testable modules:
   ```
 - **Git:** small, incremental commits, each with `ruff check` + tests green
   before committing. Conventional-commit style messages.
+- **CodeGraph:** the repository is indexed with
+  [CodeGraph](https://codegraph.dev) (`.codegraph/` at the root, created via
+  `codegraph init`). Contributors query the graph (`codegraph explore` / the
+  `codegraph_explore` MCP tool) to understand and locate code before falling
+  back to grep/find. The generated index is git-ignored; each clone runs
+  `codegraph init` once. Required dev tooling.
 
 ## 9. Packaging
 
 - `pyproject.toml`, entry point `[project.scripts] kiro-usage = "kiro_usage.cli:main"`.
 - Runtime deps: `rich`, `httpx` (holiday + account calls); stdlib `sqlite3`,
   `tomllib`, `datetime`, `zoneinfo`.
-- Python ≥ 3.11 (`tomllib`). Install: `uv tool install kiro-usage`; run: `uvx kiro-usage`.
+- **Python pinned to 3.14** — `requires-python = ">=3.14"`, `.python-version`
+  file `3.14` for uv. Install: `uv tool install kiro-usage`; run: `uvx kiro-usage`.
 
 ## 10. Out of scope (deferred)
 

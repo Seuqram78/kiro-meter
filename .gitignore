@@ -25,3 +25,6 @@ htmlcov/
 
 # Claude Code local settings
 .claude/
+
+# CodeGraph index (regenerate with `codegraph init`)
+.codegraph/

@@ -33,12 +33,18 @@ uvx kiro-usage
 
 ## Development
 
+Requires Python 3.14 (pinned via `.python-version`).
+
 ```sh
 uv sync
+codegraph init      # once per clone — indexes the repo for CodeGraph
 ruff check
 ruff format --check
 pytest
 ```
 
-Lint runs with `ruff` `select = ["ALL"]` and no per-file/`# noqa` exceptions;
-see the design doc for the code-quality policy.
+- Lint runs with `ruff` `select = ["ALL"]` and no per-file/`# noqa` exceptions;
+  see the design doc for the code-quality policy.
+- The repo is a **CodeGraph** project — use `codegraph explore` (or the
+  `codegraph_explore` MCP tool) to navigate the code. The index (`.codegraph/`)
+  is git-ignored and regenerated locally.
