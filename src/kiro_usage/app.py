@@ -138,7 +138,7 @@ def _as_dict(snap: Snapshot) -> dict[str, object]:
         "burn_rate_per_min": snap.db.burn_rate_per_min,
         "used": account.used if account else None,
         "limit": account.limit if account else None,
-        "target_per_day": pace.target_per_day if pace else None,
+        "allowance_per_day": pace.allowance_per_day if pace else None,
         "actual_per_day": pace.actual_per_day if pace else None,
     }
 

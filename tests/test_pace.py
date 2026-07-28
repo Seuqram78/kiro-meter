@@ -14,9 +14,11 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 _NOW = datetime(2026, 7, 15, 0, 0, tzinfo=UTC)
-_NDIGITS = 2
-_TARGET_REMAINING = 36.0
-_TARGET_DAYS = 17.0
+_NDIGITS = 4
+_LIMIT = 50.0
+_CYCLE_DAYS = 31.0
+_REMAINING = 36.0
+_DAYS_LEFT = 17.0
 _EXPECTED_WORKING_DAYS = 5
 
 
@@ -42,24 +44,30 @@ def _db(today: float) -> DbSnapshot:
     return DbSnapshot(today, 1, today, 1, None, (), (), (), approx=True)
 
 
-def test_target_and_actual_pace_calendar() -> None:
-    """Target uses remaining/days-left, actual uses used/days-elapsed."""
+def test_allowance_and_actual_pace_calendar() -> None:
+    """Allowance is the even daily budget; actual is remaining/days-left."""
     pace = compute_pace(
-        _account(used=14.0, limit=50.0), _db(1.0), AppConfig(), now=_NOW
+        _account(used=14.0, limit=_LIMIT), _db(1.0), AppConfig(), now=_NOW
     )
     assert pace.mode == "calendar"
-    assert pace.target_per_day is not None
-    assert round(pace.target_per_day, _NDIGITS) == round(
-        _TARGET_REMAINING / _TARGET_DAYS, _NDIGITS
+    assert pace.allowance_per_day is not None
+    # allowance = limit / cycle length (Jul 1 -> Aug 1 = 31 days)
+    assert round(pace.allowance_per_day, _NDIGITS) == round(
+        _LIMIT / _CYCLE_DAYS, _NDIGITS
     )
+    # actual = remaining 36 over 17 days left (Jul 15 -> Aug 1)
     assert pace.actual_per_day is not None
-    assert pace.projection_runout is not None
+    assert round(pace.actual_per_day, _NDIGITS) == round(
+        _REMAINING / _DAYS_LEFT, _NDIGITS
+    )
 
 
-def test_pace_none_when_cycle_just_reset() -> None:
-    """When days_elapsed < 0.5 actual pace is None (no divide blow-up)."""
-    now = datetime(2026, 7, 1, 1, 0, tzinfo=UTC)
-    pace = compute_pace(_account(used=0.0, limit=50.0), _db(0.0), AppConfig(), now=now)
+def test_actual_pace_none_when_reset_imminent() -> None:
+    """When under half a day remains, actual pace is None (no divide blow-up)."""
+    now = datetime(2026, 7, 31, 23, 50, tzinfo=UTC)
+    pace = compute_pace(
+        _account(used=40.0, limit=_LIMIT), _db(0.0), AppConfig(), now=now
+    )
     assert pace.actual_per_day is None
 
 

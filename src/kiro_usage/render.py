@@ -86,19 +86,19 @@ def _today_line(db: DbSnapshot, pace: PaceInfo | None) -> RenderableType:
     if pace is not None and pace.today_fraction is not None:
         bar = _bar(pace.today_fraction)
         pct = pace.today_fraction * _PERCENT
-        line = f"Today {bar}  {db.today_credits:.2f} cr  ({pct:.0f}% of pace, local)"
+        line = f"Today {bar}  {db.today_credits:.2f} cr  ({pct:.0f}% allowance, local)"
         return Text(line)
     return Text(f"Today  {db.today_credits:.2f} cr  ({db.today_turns} turns, local)")
 
 
 def _pace_lines(pace: PaceInfo) -> list[RenderableType]:
-    """Render the target and actual pace lines."""
+    """Render the allowance and actual pace lines."""
     lines: list[RenderableType] = []
-    if pace.target_per_day is not None:
-        target = f"Pace  target {pace.target_per_day:.2f} cr/day"
-        lines.append(Text(target, style="dim"))
+    if pace.allowance_per_day is not None:
+        allowance = f"Pace  allowance {pace.allowance_per_day:.2f} cr/day (even budget)"
+        lines.append(Text(allowance, style="dim"))
     if pace.actual_per_day is not None:
-        actual = f"      actual {pace.actual_per_day:.2f} cr/day"
+        actual = f"      actual    {pace.actual_per_day:.2f} cr/day (affordable now)"
         lines.append(Text(actual, style="dim"))
     return lines
 

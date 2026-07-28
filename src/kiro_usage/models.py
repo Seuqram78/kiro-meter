@@ -68,7 +68,7 @@ class PaceInfo:
     """Derived pacing numbers comparing spend against the billing cycle."""
 
     mode: PaceMode
-    target_per_day: float | None
+    allowance_per_day: float | None
     actual_per_day: float | None
     today_fraction: float | None
     days_until_reset: float

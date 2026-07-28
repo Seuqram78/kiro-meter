@@ -156,27 +156,28 @@ def compute_pace(
     remaining = max(account.limit - account.used, 0.0)
     cycle_start = _month_before(account.next_reset)
     calendar_until = _days_between(now, account.next_reset)
+    calendar_cycle = _days_between(cycle_start, account.next_reset)
     calendar_elapsed = _days_between(cycle_start, now)
 
     mode: PaceMode
     if cfg.workdays and holidays is not None:
         mode = "workday"
-        days_until, days_elapsed, non_working, available = _workday_spans(
+        cycle_len, days_until, non_working, available = _workday_spans(
             cfg, holidays, now=now, cycle_start=cycle_start, reset=account.next_reset
         )
     else:
         mode = "calendar"
-        days_until, days_elapsed = calendar_until, calendar_elapsed
+        cycle_len, days_until = calendar_cycle, calendar_until
         non_working, available = False, True
 
-    target = remaining / days_until if days_until >= _MIN_DAYS else None
-    actual = account.used / days_elapsed if days_elapsed >= _MIN_DAYS else None
-    today_fraction = db.today_credits / target if target else None
-    runout = now + timedelta(days=remaining / actual) if actual else None
+    allowance = account.limit / cycle_len if cycle_len >= _MIN_DAYS else None
+    actual = remaining / days_until if days_until >= _MIN_DAYS else None
+    today_fraction = db.today_credits / allowance if allowance else None
+    runout = now + timedelta(days=days_until) if actual is not None else None
 
     return PaceInfo(
         mode=mode,
-        target_per_day=target,
+        allowance_per_day=allowance,
         actual_per_day=actual,
         today_fraction=today_fraction,
         days_until_reset=calendar_until,
@@ -195,18 +196,18 @@ def _workday_spans(
     cycle_start: datetime,
     reset: datetime,
 ) -> tuple[float, float, bool, bool]:
-    """Return (working days until reset, elapsed, non_working_today, available).
+    """Return (working days in cycle, working days until reset, non_working, available).
 
     Falls back to a weekends-only count if holidays cannot be fetched.
     """
     country = cfg.country or ""
     today = now.date()
     try:
+        cycle_len = holidays.working_days_between(
+            cycle_start.date(), reset.date(), country=country, region=cfg.region
+        )
         until = holidays.working_days_between(
             today, reset.date(), country=country, region=cfg.region
-        )
-        elapsed = holidays.working_days_between(
-            cycle_start.date(), today, country=country, region=cfg.region
         )
         non_working = (
             holidays.working_days_between(
@@ -215,11 +216,11 @@ def _workday_spans(
             == 0
         )
     except HolidayUnavailableError:
+        cycle_len = _weekdays_between(cycle_start.date(), reset.date())
         until = _weekdays_between(today, reset.date())
-        elapsed = _weekdays_between(cycle_start.date(), today)
         non_working = today.weekday() >= _FIRST_WEEKEND_DAY
-        return float(until), float(elapsed), non_working, False
-    return float(until), float(elapsed), non_working, True
+        return float(cycle_len), float(until), non_working, False
+    return float(cycle_len), float(until), non_working, True
 
 
 def _weekdays_between(start: date, end: date) -> int:

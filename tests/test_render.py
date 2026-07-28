@@ -54,8 +54,8 @@ def _account() -> AccountInfo:
 def _pace() -> PaceInfo:
     return PaceInfo(
         mode="calendar",
-        target_per_day=2.1,
-        actual_per_day=1.9,
+        allowance_per_day=1.61,
+        actual_per_day=11.37,
         today_fraction=0.15,
         days_until_reset=4.0,
         days_elapsed=27.0,
