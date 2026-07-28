@@ -8,7 +8,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from kiro_usage.models import ConversationRow, DbSnapshot
+from kiro_meter.models import ConversationRow, DbSnapshot
 
 if TYPE_CHECKING:
     from datetime import date, tzinfo

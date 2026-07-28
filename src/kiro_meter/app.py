@@ -12,24 +12,24 @@ import httpx
 from rich.console import Console
 from rich.live import Live
 
-from kiro_usage.account import (
+from kiro_meter.account import (
     NeedsLoginError,
     fetch_account_info,
     load_token,
     token_expired,
 )
-from kiro_usage.db import build_db_snapshot, load_conversations
-from kiro_usage.models import Snapshot
-from kiro_usage.pace import billing_cycle_start, compute_pace
-from kiro_usage.render import render_snapshot
+from kiro_meter.db import build_db_snapshot, load_conversations
+from kiro_meter.models import Snapshot
+from kiro_meter.pace import billing_cycle_start, compute_pace
+from kiro_meter.render import render_snapshot
 
 if TYPE_CHECKING:
     from collections.abc import Callable
     from datetime import datetime, tzinfo
     from pathlib import Path
 
-    from kiro_usage.models import AccountInfo, AccountStatus, AppConfig
-    from kiro_usage.pace import HolidayProvider
+    from kiro_meter.models import AccountInfo, AccountStatus, AppConfig
+    from kiro_meter.pace import HolidayProvider
 
 _TICK_SECONDS = 0.25
 _NEAR_LIMIT_FRACTION = 0.9

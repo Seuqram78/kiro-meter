@@ -1,4 +1,4 @@
-"""Command-line entry point for kiro-usage."""
+"""Command-line entry point for kiro-meter."""
 
 from __future__ import annotations
 
@@ -10,20 +10,20 @@ from zoneinfo import ZoneInfo
 
 import httpx
 
-from kiro_usage.app import RunContext, run_live, run_once
-from kiro_usage.config import (
+from kiro_meter.app import RunContext, run_live, run_once
+from kiro_meter.config import (
     CONFIG_PATH,
     load_config,
     run_first_time_setup,
     save_config,
 )
-from kiro_usage.db import DEFAULT_DB_PATH
-from kiro_usage.pace import HolidayUnavailableError, NagerHolidayProvider
+from kiro_meter.db import DEFAULT_DB_PATH
+from kiro_meter.pace import HolidayUnavailableError, NagerHolidayProvider
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from kiro_usage.models import AppConfig
+    from kiro_meter.models import AppConfig
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -56,7 +56,7 @@ def main(argv: list[str] | None = None) -> int:
 
 def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     """Build the argument parser and parse ``argv``."""
-    parser = argparse.ArgumentParser(prog="kiro-usage", description=__doc__)
+    parser = argparse.ArgumentParser(prog="kiro-meter", description=__doc__)
     parser.add_argument(
         "--once", action="store_true", help="print one snapshot and exit"
     )

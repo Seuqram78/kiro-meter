@@ -7,8 +7,8 @@ from typing import TYPE_CHECKING
 
 import httpx
 
-from kiro_usage.models import AccountInfo, AppConfig, DbSnapshot
-from kiro_usage.pace import NagerHolidayProvider, compute_pace
+from kiro_meter.models import AccountInfo, AppConfig, DbSnapshot
+from kiro_meter.pace import NagerHolidayProvider, compute_pace
 
 if TYPE_CHECKING:
     from pathlib import Path

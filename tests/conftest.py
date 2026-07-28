@@ -1,4 +1,4 @@
-"""Shared pytest fixtures for kiro-usage tests."""
+"""Shared pytest fixtures for kiro-meter tests."""
 
 from __future__ import annotations
 

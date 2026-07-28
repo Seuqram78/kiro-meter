@@ -7,9 +7,9 @@ from typing import TYPE_CHECKING
 
 import httpx
 
-from kiro_usage import __version__
-from kiro_usage.app import RunContext, run_once
-from kiro_usage.models import AppConfig
+from kiro_meter import __version__
+from kiro_meter.app import RunContext, run_once
+from kiro_meter.models import AppConfig
 
 if TYPE_CHECKING:
     from collections.abc import Callable

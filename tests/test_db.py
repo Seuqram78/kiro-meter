@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from kiro_usage.db import build_db_snapshot, load_conversations
+from kiro_meter.db import build_db_snapshot, load_conversations
 
 if TYPE_CHECKING:
     from collections.abc import Callable

@@ -1,4 +1,4 @@
-"""Shared, immutable data types passed between kiro-usage modules."""
+"""Shared, immutable data types passed between kiro-meter modules."""
 
 from __future__ import annotations
 

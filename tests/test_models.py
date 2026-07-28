@@ -2,7 +2,7 @@
 
 from datetime import UTC, datetime
 
-from kiro_usage.models import AccountInfo, AppConfig, ConversationRow
+from kiro_meter.models import AccountInfo, AppConfig, ConversationRow
 
 _EXPECTED_CREDITS = 0.5
 _DEFAULT_REFRESH_SECONDS = 3

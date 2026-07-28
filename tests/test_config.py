@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from kiro_usage.config import load_config, run_first_time_setup, save_config
-from kiro_usage.models import AppConfig
+from kiro_meter.config import load_config, run_first_time_setup, save_config
+from kiro_meter.models import AppConfig
 
 if TYPE_CHECKING:
     from pathlib import Path

@@ -133,8 +133,8 @@ wheels = [
 ]
 
 [[package]]
-name = "kiro-usage"
-version = "0.1.0"
+name = "kiro-meter"
+version = "26.7.0"
 source = { editable = "." }
 dependencies = [
     { name = "httpx" },

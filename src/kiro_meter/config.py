@@ -1,4 +1,4 @@
-"""Load, save, and interactively collect kiro-usage configuration."""
+"""Load, save, and interactively collect kiro-meter configuration."""
 
 from __future__ import annotations
 
@@ -9,12 +9,12 @@ import tomllib
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from kiro_usage.models import AppConfig
+from kiro_meter.models import AppConfig
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-CONFIG_PATH: Path = Path.home() / ".kiro-usage/config.toml"
+CONFIG_PATH: Path = Path.home() / ".kiro-meter/config.toml"
 
 _YES_ANSWERS = {"y", "yes"}
 _COUNTRY_CODE_LEN = 2

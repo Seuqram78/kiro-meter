@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from kiro_usage.models import AccountInfo
+from kiro_meter.models import AccountInfo
 
 if TYPE_CHECKING:
     from pathlib import Path

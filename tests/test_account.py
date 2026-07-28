@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 import httpx
 import pytest
 
-from kiro_usage.account import (
+from kiro_meter.account import (
     NeedsLoginError,
     SocialToken,
     fetch_account_info,

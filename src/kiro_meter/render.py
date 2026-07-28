@@ -13,7 +13,7 @@ from rich.text import Text
 if TYPE_CHECKING:
     from rich.console import RenderableType
 
-    from kiro_usage.models import (
+    from kiro_meter.models import (
         AccountInfo,
         AppConfig,
         DbSnapshot,

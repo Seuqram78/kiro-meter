@@ -1,4 +1,4 @@
-# kiro-usage
+# kiro-meter
 
 A personal, unofficial live terminal monitor for [Kiro CLI](https://kiro.dev)
 credit usage. It reads Kiro's local data for live spend and shows how your
@@ -35,18 +35,18 @@ expired, the monitor keeps running on local data and prompts you to re-login.
 
 ## Install
 
-Installed straight from this repo with [uv](https://docs.astral.sh/uv/) — there
-is no PyPI package (the name `kiro-usage` on PyPI is an unrelated project).
+Installed straight from this repo with [uv](https://docs.astral.sh/uv/) — it is
+not published to PyPI; you install it directly from the Git repository.
 
 ```sh
 # install the command
-uv tool install git+https://github.com/Seuqram78/kiro-usage
+uv tool install git+https://github.com/Seuqram78/kiro-meter
 
 # run without installing
-uvx --from git+https://github.com/Seuqram78/kiro-usage kiro-usage
+uvx --from git+https://github.com/Seuqram78/kiro-meter kiro-meter
 
 # pin to a release
-uv tool install git+https://github.com/Seuqram78/kiro-usage@v26.7.0
+uv tool install git+https://github.com/Seuqram78/kiro-meter@v26.7.0
 ```
 
 Needs **Python 3.14** (uv will provision it automatically).
@@ -57,9 +57,9 @@ A git install pins to the commit resolved at install time; new commits on `main`
 do not update you until you ask:
 
 ```sh
-uv tool upgrade kiro-usage
+uv tool upgrade kiro-meter
 # or force the latest main if upgrade doesn't move (cached revision):
-uv tool install --force git+https://github.com/Seuqram78/kiro-usage
+uv tool install --force git+https://github.com/Seuqram78/kiro-meter
 ```
 
 A `@v26.7.0`-pinned install won't cross the tag; install a newer tag to move.
@@ -67,15 +67,15 @@ Releases use calendar versioning: `YY.M.PATCH` (e.g. `26.7.0` = 2026-07, patch 0
 
 On first run it asks whether to pace against working days (and, if so, your
 country/region for public holidays, suggested from a list) and saves the answer
-to `~/.kiro-usage/config.toml`.
+to `~/.kiro-meter/config.toml`.
 
 ## Usage
 
 ```sh
-kiro-usage                 # live monitor (Ctrl-C to quit)
-kiro-usage --once          # print one snapshot and exit
-kiro-usage --json          # machine-readable snapshot (implies --once)
-kiro-usage --no-account    # local data only; skip the official-limit call
+kiro-meter                 # live monitor (Ctrl-C to quit)
+kiro-meter --once          # print one snapshot and exit
+kiro-meter --json          # machine-readable snapshot (implies --once)
+kiro-meter --no-account    # local data only; skip the official-limit call
 ```
 
 | Flag | Effect |

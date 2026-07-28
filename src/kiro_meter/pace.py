@@ -9,13 +9,13 @@ from typing import TYPE_CHECKING, Protocol
 
 import httpx
 
-from kiro_usage.models import PaceInfo
+from kiro_meter.models import PaceInfo
 
 if TYPE_CHECKING:
     from datetime import datetime
     from pathlib import Path
 
-    from kiro_usage.models import AccountInfo, AppConfig, DbSnapshot, PaceMode
+    from kiro_meter.models import AccountInfo, AppConfig, DbSnapshot, PaceMode
 
 _SECONDS_PER_DAY = 86_400.0
 _MIN_DAYS = 0.5

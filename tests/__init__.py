@@ -1,1 +1,1 @@
-"""Test suite for kiro-usage."""
+"""Test suite for kiro-meter."""

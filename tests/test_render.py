@@ -6,8 +6,8 @@ from datetime import UTC, datetime
 
 from rich.console import Console
 
-from kiro_usage.models import AccountInfo, AppConfig, DbSnapshot, PaceInfo, Snapshot
-from kiro_usage.render import render_snapshot
+from kiro_meter.models import AccountInfo, AppConfig, DbSnapshot, PaceInfo, Snapshot
+from kiro_meter.render import render_snapshot
 
 _NOW = datetime(2026, 7, 28, 12, 0, tzinfo=UTC)
 _CONSOLE_WIDTH = 80
