@@ -20,7 +20,7 @@ from kiro_usage.account import (
 )
 from kiro_usage.db import build_db_snapshot, load_conversations
 from kiro_usage.models import Snapshot
-from kiro_usage.pace import compute_pace
+from kiro_usage.pace import billing_cycle_start, compute_pace
 from kiro_usage.render import render_snapshot
 
 if TYPE_CHECKING:
@@ -79,7 +79,10 @@ def build_snapshot(
     now: datetime,
 ) -> Snapshot:
     """Read local spend and combine it with the account into a Snapshot."""
-    db = build_db_snapshot(load_conversations(ctx.db_path), now=now, tz=ctx.tz)
+    since = billing_cycle_start(account.next_reset) if account is not None else None
+    db = build_db_snapshot(
+        load_conversations(ctx.db_path), now=now, tz=ctx.tz, since=since
+    )
     pace = (
         compute_pace(account, db, cfg, now=now, holidays=ctx.holidays)
         if account is not None

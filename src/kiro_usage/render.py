@@ -64,7 +64,7 @@ def render_snapshot(
 
     groups = [official, budget]
     if snap.db.by_folder_model:
-        groups.append([_usage_table(snap.db)])
+        groups.append([_usage_table(snap.db, scoped=snap.account is not None)])
     if countdown is not None:
         groups.append([_footer(snap, countdown)])
 
@@ -181,11 +181,12 @@ def _burn_line(burn_rate_per_min: float) -> RenderableType:
     return Text(f"Burn  {burn_rate_per_min:.3f} cr/min (local)", style="dim")
 
 
-def _usage_table(db: DbSnapshot) -> RenderableType:
+def _usage_table(db: DbSnapshot, *, scoped: bool) -> RenderableType:
     """Render a bar chart of credits grouped by folder and model."""
     peak = max(amount for *_, amount in db.by_folder_model)
+    scope = "this cycle" if scoped else "recent"
     table = Table(
-        title="Usage by folder & model (local)",
+        title=f"Usage by folder & model ({scope})",
         title_justify="left",
         title_style="dim",
         box=None,

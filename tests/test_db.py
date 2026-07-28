@@ -62,6 +62,24 @@ def test_snapshot_aggregates_today_and_breakdowns(
     assert snap.approx is True
 
 
+def test_usage_scoped_to_cycle_with_since(
+    make_db: Callable[[list[ConversationSpec]], Path],
+) -> None:
+    """`since` limits the folder/model usage to the current cycle."""
+    prev_cycle = datetime(2026, 6, 20, 12, 0, tzinfo=UTC)
+    this_cycle = datetime(2026, 7, 10, 12, 0, tzinfo=UTC)
+    cutoff = datetime(2026, 7, 1, 0, 0, tzinfo=UTC)
+    db = make_db(
+        [
+            ("old", "/proj-a", "haiku", 9.0, _ms(prev_cycle)),
+            ("new", "/proj-b", "haiku", 0.05, _ms(this_cycle)),
+        ],
+    )
+    snap = build_db_snapshot(load_conversations(db), now=_NOW, tz=UTC, since=cutoff)
+    assert len(snap.by_folder_model) == 1
+    assert snap.by_folder_model[0][0] == "/proj-b"
+
+
 def test_burn_rate_only_counts_recent(
     make_db: Callable[[list[ConversationSpec]], Path],
 ) -> None:

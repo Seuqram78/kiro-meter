@@ -162,7 +162,7 @@ def compute_pace(
         days; in workday mode they are working days.
     """
     remaining = max(account.limit - account.used, 0.0)
-    cycle_start = _month_before(account.next_reset)
+    cycle_start = billing_cycle_start(account.next_reset)
     calendar_until = _days_between(now, account.next_reset)
     calendar_cycle = _days_between(cycle_start, account.next_reset)
     calendar_elapsed = _days_between(cycle_start, now)
@@ -253,12 +253,16 @@ def _parse_holidays(payload: list[dict[str, object]]) -> tuple[Holiday, ...]:
     return tuple(holidays)
 
 
-def _month_before(dt: datetime) -> datetime:
-    """Return the same clock time one calendar month earlier."""
-    year = dt.year - 1 if dt.month == 1 else dt.year
-    month = _MONTHS_PER_YEAR if dt.month == 1 else dt.month - 1
+def billing_cycle_start(reset: datetime) -> datetime:
+    """Return the start of the billing cycle that ends at ``reset``.
+
+    The cycle is one calendar month, so its start is the same clock time one
+    month before the reset date.
+    """
+    year = reset.year - 1 if reset.month == 1 else reset.year
+    month = _MONTHS_PER_YEAR if reset.month == 1 else reset.month - 1
     last_day = calendar.monthrange(year, month)[1]
-    return dt.replace(year=year, month=month, day=min(dt.day, last_day))
+    return reset.replace(year=year, month=month, day=min(reset.day, last_day))
 
 
 def _days_between(start: datetime, end: datetime) -> float:

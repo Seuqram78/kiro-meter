@@ -67,8 +67,8 @@ def build_db_snapshot(
     *,
     now: datetime,
     tz: tzinfo,
+    since: datetime | None = None,
     burn_window_min: int = _DEFAULT_BURN_WINDOW_MIN,
-    top_n: int = _DEFAULT_TOP_N,
 ) -> DbSnapshot:
     """Aggregate conversation rows into a DbSnapshot.
 
@@ -76,14 +76,17 @@ def build_db_snapshot(
         rows: All conversation rows from the database.
         now: The current instant (timezone-aware).
         tz: Timezone defining the "today" boundary.
+        since: If set, the folder/model usage only counts conversations updated
+            at or after this instant (e.g. the billing-cycle start).
         burn_window_min: Window, in minutes, for the burn-rate estimate.
-        top_n: Number of entries to keep in each breakdown and the recent list.
 
     Returns:
         The aggregated snapshot. ``approx`` is always True because credits are
         stored at turn-metadata level rather than as a per-turn ledger.
     """
     today = now.astimezone(tz).date()
+    since_ms = int(since.timestamp() * _MS_PER_SECOND) if since is not None else None
+    usage_rows = [r for r in rows if since_ms is None or r.updated_at_ms >= since_ms]
     today_rows = [r for r in rows if _local_date(r.updated_at_ms, tz) == today]
     window_start_ms = (
         int(now.timestamp() * _MS_PER_SECOND) - burn_window_min * _MS_PER_MINUTE
@@ -100,8 +103,8 @@ def build_db_snapshot(
         session_credits=session.credits if session else 0.0,
         session_turns=1 if session else 0,
         burn_rate_per_min=burn,
-        by_folder_model=_by_folder_model(rows, n=top_n),
-        recent=tuple(ordered[:top_n]),
+        by_folder_model=_by_folder_model(usage_rows, n=_DEFAULT_TOP_N),
+        recent=tuple(ordered[:_DEFAULT_TOP_N]),
         approx=True,
     )
 
