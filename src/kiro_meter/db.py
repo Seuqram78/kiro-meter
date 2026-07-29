@@ -67,7 +67,9 @@ def _parse_session(data: dict[str, object]) -> ConversationRow | None:
         for usage in turn.get("metering_usage", [])
         if usage.get("unit") == _CREDIT_UNIT
     )
-    model_id = state.get("rts_model_state", {}).get("model_info", {}).get("model_id")
+    rts_model_state = state.get("rts_model_state", {})
+    model_info = rts_model_state.get("model_info") if isinstance(rts_model_state, dict) else None
+    model_id = model_info.get("model_id") if isinstance(model_info, dict) else None
     cwd = data.get("cwd")
     return ConversationRow(
         session_id,
