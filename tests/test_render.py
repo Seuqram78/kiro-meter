@@ -6,8 +6,11 @@ from datetime import UTC, datetime
 
 from rich.console import Console
 
-from kiro_meter.models import AccountInfo, AppConfig, DbSnapshot, PaceInfo, Snapshot
+from kiro_meter.models import AppConfig, Snapshot
 from kiro_meter.render import render_snapshot
+from tests.conftest import account_info as _account
+from tests.conftest import db_snapshot as _db
+from tests.conftest import pace_info as _pace
 
 _NOW = datetime(2026, 7, 28, 12, 0, tzinfo=UTC)
 _CONSOLE_WIDTH = 80
@@ -17,54 +20,6 @@ def _render(snap: Snapshot) -> str:
     console = Console(width=_CONSOLE_WIDTH, record=True)
     console.print(render_snapshot(snap, AppConfig()))
     return console.export_text()
-
-
-def _db() -> DbSnapshot:
-    return DbSnapshot(
-        today_credits=0.31,
-        today_turns=18,
-        session_credits=0.12,
-        session_turns=6,
-        burn_rate_per_min=0.02,
-        by_folder_model=(
-            ("/home/me/proj-a", "sonnet-4.5", 8, 0.21),
-            ("/home/me/proj-b", "haiku-4.5", 12, 0.10),
-        ),
-        recent=(),
-        approx=True,
-    )
-
-
-def _account() -> AccountInfo:
-    return AccountInfo(
-        email="u@e.com",
-        tier="KIRO FREE",
-        sub_type="FREE",
-        used=11.21,
-        limit=50.0,
-        overage_used=0.0,
-        overage_cap=10000.0,
-        overage_rate=0.04,
-        overage_enabled=False,
-        next_reset=datetime(2026, 8, 1, tzinfo=UTC),
-        days_until_reset_api=3,
-        currency="USD",
-        fetched_at=_NOW,
-    )
-
-
-def _pace() -> PaceInfo:
-    return PaceInfo(
-        mode="calendar",
-        allowance_per_day=1.61,
-        can_spend_per_day=11.37,
-        today_fraction=0.15,
-        days_until_reset=4.0,
-        days_elapsed=27.0,
-        projection_runout=None,
-        non_working_today=False,
-        holidays_available=True,
-    )
 
 
 def test_official_gauge_rendered_when_account_present() -> None:

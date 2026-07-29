@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
@@ -49,5 +50,12 @@ def test_run_once_json_local_only(
         )
         code = run_once(cfg, ctx, now=now, as_json=True)
     out = capsys.readouterr().out
-    assert '"today_credits"' in out
+    data = json.loads(out)
+    assert data["schema_version"] == 1
+    assert data["account_status"] == "disabled"
+    assert data["account"] is None
+    assert data["pace"] is None
+    assert data["today"] == {"credits": 0.02, "turns": 1}
+    assert data["usage"]["scope"] == "recent"
+    assert data["usage"]["by_folder_model"] == [["/p", "haiku", 1, 0.02]]
     assert code == _EXIT_INDETERMINATE

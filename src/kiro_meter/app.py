@@ -28,7 +28,13 @@ if TYPE_CHECKING:
     from datetime import datetime, tzinfo
     from pathlib import Path
 
-    from kiro_meter.models import AccountInfo, AccountStatus, AppConfig
+    from kiro_meter.models import (
+        AccountInfo,
+        AccountStatus,
+        AppConfig,
+        DbSnapshot,
+        PaceInfo,
+    )
     from kiro_meter.pace import HolidayProvider
 
 _TICK_SECONDS = 0.25
@@ -38,6 +44,7 @@ _EXIT_NEAR_LIMIT = 10
 _EXIT_AT_LIMIT = 11
 _EXIT_INDETERMINATE = 20
 _EXIT_ERROR = 30
+_SCHEMA_VERSION = 1
 
 
 @dataclass(frozen=True)
@@ -141,17 +148,65 @@ def run_live(
 
 
 def _as_dict(snap: Snapshot) -> dict[str, object]:
-    """Flatten a snapshot into a JSON-serialisable dict."""
-    account, pace = snap.account, snap.pace
+    """Flatten a snapshot into a JSON-serialisable dict (see README for schema)."""
     return {
+        "schema_version": _SCHEMA_VERSION,
+        "generated_at": snap.generated_at.isoformat(),
         "account_status": snap.account_status,
-        "today_credits": snap.db.today_credits,
-        "today_turns": snap.db.today_turns,
+        "account": _account_dict(snap.account),
+        "today": {"credits": snap.db.today_credits, "turns": snap.db.today_turns},
         "burn_rate_per_min": snap.db.burn_rate_per_min,
-        "used": account.used if account else None,
-        "limit": account.limit if account else None,
-        "allowance_per_day": pace.allowance_per_day if pace else None,
-        "can_spend_per_day": pace.can_spend_per_day if pace else None,
+        "pace": _pace_dict(snap.pace),
+        "usage": _usage_dict(snap.db, scoped=snap.account is not None),
+    }
+
+
+def _account_dict(account: AccountInfo | None) -> dict[str, object] | None:
+    """Map official account usage to its JSON shape, or None if unavailable."""
+    if account is None:
+        return None
+    return {
+        "email": account.email,
+        "tier": account.tier,
+        "sub_type": account.sub_type,
+        "used": account.used,
+        "limit": account.limit,
+        "currency": account.currency,
+        "next_reset": account.next_reset.isoformat(),
+        "overage_used": account.overage_used,
+        "overage_cap": account.overage_cap,
+        "overage_enabled": account.overage_enabled,
+    }
+
+
+def _pace_dict(pace: PaceInfo | None) -> dict[str, object] | None:
+    """Map pacing info to its JSON shape, or None if unavailable."""
+    if pace is None:
+        return None
+    return {
+        "mode": pace.mode,
+        "allowance_per_day": pace.allowance_per_day,
+        "can_spend_per_day": pace.can_spend_per_day,
+        "today_fraction": pace.today_fraction,
+        "days_until_reset": pace.days_until_reset,
+        "days_elapsed": pace.days_elapsed,
+        "projection_runout": (
+            pace.projection_runout.isoformat() if pace.projection_runout else None
+        ),
+        "non_working_today": pace.non_working_today,
+        "holidays_available": pace.holidays_available,
+    }
+
+
+def _usage_dict(db: DbSnapshot, *, scoped: bool) -> dict[str, object] | None:
+    """Map the folder/model breakdown to its JSON shape, or None if empty."""
+    if not db.by_folder_model:
+        return None
+    return {
+        "scope": "this cycle" if scoped else "recent",
+        "by_folder_model": [list(row) for row in db.by_folder_model],
+        "total_credits": sum(amount for *_, amount in db.by_folder_model),
+        "total_turns": sum(turns for _, _, turns, _ in db.by_folder_model),
     }
 
 

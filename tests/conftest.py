@@ -8,12 +8,67 @@ from typing import TYPE_CHECKING
 
 import pytest
 
+from kiro_meter.models import AccountInfo, DbSnapshot, PaceInfo
+
 if TYPE_CHECKING:
     from collections.abc import Callable
     from pathlib import Path
 
 ConversationSpec = tuple[str, str, str, float, int]
 """(conversation_id, folder, model, credits, updated_at_ms)."""
+
+_ACCOUNT_FETCHED_AT = datetime(2026, 7, 28, 12, 0, tzinfo=UTC)
+
+
+def db_snapshot() -> DbSnapshot:
+    """A representative DbSnapshot shared by render/JSON tests."""
+    return DbSnapshot(
+        today_credits=0.31,
+        today_turns=18,
+        session_credits=0.12,
+        session_turns=6,
+        burn_rate_per_min=0.02,
+        by_folder_model=(
+            ("/home/me/proj-a", "sonnet-4.5", 8, 0.21),
+            ("/home/me/proj-b", "haiku-4.5", 12, 0.10),
+        ),
+        recent=(),
+        approx=True,
+    )
+
+
+def account_info() -> AccountInfo:
+    """A representative AccountInfo shared by render/JSON tests."""
+    return AccountInfo(
+        email="u@e.com",
+        tier="KIRO FREE",
+        sub_type="FREE",
+        used=11.21,
+        limit=50.0,
+        overage_used=0.0,
+        overage_cap=10000.0,
+        overage_rate=0.04,
+        overage_enabled=False,
+        next_reset=datetime(2026, 8, 1, tzinfo=UTC),
+        days_until_reset_api=3,
+        currency="USD",
+        fetched_at=_ACCOUNT_FETCHED_AT,
+    )
+
+
+def pace_info() -> PaceInfo:
+    """A representative PaceInfo shared by render/JSON tests."""
+    return PaceInfo(
+        mode="calendar",
+        allowance_per_day=1.61,
+        can_spend_per_day=11.37,
+        today_fraction=0.15,
+        days_until_reset=4.0,
+        days_elapsed=27.0,
+        projection_runout=None,
+        non_working_today=False,
+        holidays_available=True,
+    )
 
 
 def _iso(updated_at_ms: int) -> str:
