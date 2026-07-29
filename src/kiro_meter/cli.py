@@ -18,12 +18,11 @@ from kiro_meter.config import (
     save_config,
 )
 from kiro_meter.db import DEFAULT_DB_PATH
+from kiro_meter.models import AppConfig
 from kiro_meter.pace import HolidayUnavailableError, NagerHolidayProvider
 
 if TYPE_CHECKING:
     from collections.abc import Callable
-
-    from kiro_meter.models import AppConfig
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -78,11 +77,20 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
 
 
 def _resolve_config(args: argparse.Namespace, *, client: httpx.Client) -> AppConfig:
-    """Load or create config, then apply command-line overrides."""
+    """Load or create config, then apply command-line overrides.
+
+    First-run setup is interactive; if no input is available it returns None and
+    we fall back to defaults without persisting, so a later interactive run still
+    prompts.
+    """
     cfg = load_config()
     if cfg is None or args.reconfigure:
-        cfg = run_first_time_setup(list_regions=_region_lister(client))
-        save_config(cfg)
+        chosen = run_first_time_setup(list_regions=_region_lister(client))
+        if chosen is not None:
+            cfg = chosen
+            save_config(cfg)
+    if cfg is None:
+        cfg = AppConfig()
     return dataclasses.replace(
         cfg,
         use_account=cfg.use_account and not args.no_account,

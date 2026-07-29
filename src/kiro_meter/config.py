@@ -5,6 +5,7 @@ from __future__ import annotations
 import dataclasses
 import locale
 import os
+import sys
 import tomllib
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -18,6 +19,7 @@ CONFIG_PATH: Path = Path.home() / ".kiro-meter/config.toml"
 
 _YES_ANSWERS = {"y", "yes"}
 _COUNTRY_CODE_LEN = 2
+_WORKDAYS_QUESTION = "Pace against working days only? (skip weekends/holidays) [y/N]: "
 
 
 def load_config(path: Path = CONFIG_PATH) -> AppConfig | None:
@@ -72,6 +74,18 @@ def detect_country() -> str | None:
     return None
 
 
+def _stderr_prompt(message: str) -> str:
+    """Ask on stderr and read a line from stdin, keeping stdout clean.
+
+    Unlike ``input(message)``, which echoes the prompt to stdout (and would
+    corrupt ``--json`` output), this writes the question to stderr. Raises
+    ``EOFError`` when no input is available, as bare ``input()`` does.
+    """
+    sys.stderr.write(message)
+    sys.stderr.flush()
+    return input()
+
+
 def _no_regions(_country: str) -> list[str]:
     """Default region lister that offers no suggestions."""
     return []
@@ -79,10 +93,10 @@ def _no_regions(_country: str) -> list[str]:
 
 def run_first_time_setup(
     *,
-    prompt: Callable[[str], str] = input,
+    prompt: Callable[[str], str] = _stderr_prompt,
     detect: Callable[[], str | None] = detect_country,
     list_regions: Callable[[str], list[str]] = _no_regions,
-) -> AppConfig:
+) -> AppConfig | None:
     """Interactively collect first-run configuration.
 
     Args:
@@ -92,9 +106,14 @@ def run_first_time_setup(
             holidays for a country, used to suggest a region.
 
     Returns:
-        The configuration chosen by the user.
+        The configuration chosen by the user, or ``None`` if no input is
+        available (non-interactive stdin), so the caller can fall back to
+        defaults without persisting them.
     """
-    answer = prompt("Pace against working days only? (skip weekends/holidays) [y/N]: ")
+    try:
+        answer = prompt(_WORKDAYS_QUESTION)
+    except EOFError:
+        return None
     if answer.strip().lower() not in _YES_ANSWERS:
         return AppConfig()
     default_country = detect()

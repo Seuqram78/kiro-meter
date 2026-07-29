@@ -63,5 +63,15 @@ def test_setup_region_blank_skips() -> None:
 def test_setup_workdays_no_uses_calendar() -> None:
     """Answering no leaves calendar mode."""
     cfg = run_first_time_setup(prompt=lambda _p: "n", detect=lambda: "BR")
+    assert cfg is not None
     assert cfg.workdays is False
     assert cfg.country is None
+
+
+def _raise_eof(_prompt: str) -> str:
+    raise EOFError
+
+
+def test_setup_returns_none_when_no_input_available() -> None:
+    """Non-interactive stdin yields None instead of crashing on input()."""
+    assert run_first_time_setup(prompt=_raise_eof) is None
