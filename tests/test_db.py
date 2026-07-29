@@ -1,4 +1,4 @@
-"""Tests for the local SQLite reader."""
+"""Tests for the local session reader."""
 
 from __future__ import annotations
 
@@ -31,11 +31,11 @@ def _ms(dt: datetime) -> int:
 
 
 def test_load_conversations_parses_credits_folder_model(
-    make_db: Callable[[list[ConversationSpec]], Path],
+    make_sessions: Callable[[list[ConversationSpec]], Path],
 ) -> None:
     """Credits, folder, and model are extracted per conversation."""
-    db = make_db([("c1", "/proj-a", "haiku-4.5", 0.02, _ms(_NOW))])
-    rows = load_conversations(db)
+    sessions_dir = make_sessions([("c1", "/proj-a", "haiku-4.5", 0.02, _ms(_NOW))])
+    rows = load_conversations(sessions_dir)
     assert len(rows) == 1
     assert rows[0].credits == _EXPECTED_ONE_CREDIT
     assert rows[0].folder == "/proj-a"
@@ -43,17 +43,17 @@ def test_load_conversations_parses_credits_folder_model(
 
 
 def test_snapshot_aggregates_today_and_breakdowns(
-    make_db: Callable[[list[ConversationSpec]], Path],
+    make_sessions: Callable[[list[ConversationSpec]], Path],
 ) -> None:
     """Today's spend, folder, and model breakdowns aggregate correctly."""
-    db = make_db(
+    sessions_dir = make_sessions(
         [
             ("c1", "/proj-a", "haiku-4.5", 0.02, _ms(_NOW)),
             ("c2", "/proj-b", "sonnet-4.5", 0.03, _ms(_NOW)),
             ("c3", "/proj-a", "haiku-4.5", 0.05, _ms(_NOW)),
         ],
     )
-    snap = build_db_snapshot(load_conversations(db), now=_NOW, tz=UTC)
+    snap = build_db_snapshot(load_conversations(sessions_dir), now=_NOW, tz=UTC)
     assert round(snap.today_credits, _NDIGITS) == _EXPECTED_TODAY_TOTAL
     assert snap.today_turns == _EXPECTED_TURNS
     top = snap.by_folder_model[0]
@@ -63,35 +63,40 @@ def test_snapshot_aggregates_today_and_breakdowns(
 
 
 def test_usage_scoped_to_cycle_with_since(
-    make_db: Callable[[list[ConversationSpec]], Path],
+    make_sessions: Callable[[list[ConversationSpec]], Path],
 ) -> None:
     """`since` limits the folder/model usage to the current cycle."""
     prev_cycle = datetime(2026, 6, 20, 12, 0, tzinfo=UTC)
     this_cycle = datetime(2026, 7, 10, 12, 0, tzinfo=UTC)
     cutoff = datetime(2026, 7, 1, 0, 0, tzinfo=UTC)
-    db = make_db(
+    sessions_dir = make_sessions(
         [
             ("old", "/proj-a", "haiku", 9.0, _ms(prev_cycle)),
             ("new", "/proj-b", "haiku", 0.05, _ms(this_cycle)),
         ],
     )
-    snap = build_db_snapshot(load_conversations(db), now=_NOW, tz=UTC, since=cutoff)
+    snap = build_db_snapshot(
+        load_conversations(sessions_dir), now=_NOW, tz=UTC, since=cutoff
+    )
     assert len(snap.by_folder_model) == 1
     assert snap.by_folder_model[0][0] == "/proj-b"
 
 
 def test_burn_rate_only_counts_recent(
-    make_db: Callable[[list[ConversationSpec]], Path],
+    make_sessions: Callable[[list[ConversationSpec]], Path],
 ) -> None:
     """Burn rate counts only conversations within the window."""
     old = datetime(2026, 7, 28, 10, 0, tzinfo=UTC)
-    db = make_db(
+    sessions_dir = make_sessions(
         [
             ("c1", "/p", "m", 0.15, _ms(_NOW)),
             ("c2", "/p", "m", 9.0, _ms(old)),
         ],
     )
     snap = build_db_snapshot(
-        load_conversations(db), now=_NOW, tz=UTC, burn_window_min=_BURN_WINDOW_MIN
+        load_conversations(sessions_dir),
+        now=_NOW,
+        tz=UTC,
+        burn_window_min=_BURN_WINDOW_MIN,
     )
     assert snap.burn_rate_per_min == _EXPECTED_BURN

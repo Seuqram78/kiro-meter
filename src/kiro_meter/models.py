@@ -20,7 +20,7 @@ PaceMode = Literal["calendar", "workday"]
 
 @dataclass(frozen=True)
 class ConversationRow:
-    """One Kiro conversation's spend, as read from local SQLite."""
+    """One Kiro conversation's spend, as read from a local session file."""
 
     conversation_id: str
     folder: str

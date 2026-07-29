@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-import sqlite3
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 import pytest
@@ -16,22 +16,33 @@ ConversationSpec = tuple[str, str, str, float, int]
 """(conversation_id, folder, model, credits, updated_at_ms)."""
 
 
-def _conversation_json(cwd: str, model: str, credit: float) -> str:
-    """Build a Kiro conversation JSON blob with one turn."""
+def _iso(updated_at_ms: int) -> str:
+    """Render epoch milliseconds as an ISO-8601 UTC timestamp ending in ``Z``."""
+    return datetime.fromtimestamp(updated_at_ms / 1000, tz=UTC).isoformat().replace(
+        "+00:00", "Z"
+    )
+
+
+def _session_json(
+    session_id: str, cwd: str, model: str, credit: float, updated_at_ms: int
+) -> str:
+    """Build a Kiro CLI session JSON document with one turn."""
     return json.dumps(
         {
-            "history": [
-                {
-                    "user": {
-                        "env_context": {
-                            "env_state": {"current_working_directory": cwd},
+            "session_id": session_id,
+            "cwd": cwd,
+            "updated_at": _iso(updated_at_ms),
+            "session_state": {
+                "conversation_metadata": {
+                    "user_turn_metadatas": [
+                        {
+                            "metering_usage": [
+                                {"value": credit, "unit": "credit"},
+                            ],
                         },
-                    },
-                    "request_metadata": {"model_id": model},
+                    ],
                 },
-            ],
-            "user_turn_metadata": {
-                "usage_info": [{"value": credit, "unit": "credit"}],
+                "rts_model_state": {"model_info": {"model_id": model}},
             },
         },
     )
@@ -69,27 +80,16 @@ def usage_response() -> dict[str, object]:
 
 
 @pytest.fixture
-def make_db(tmp_path: Path) -> Callable[[list[ConversationSpec]], Path]:
-    """Return a builder that writes a synthetic kiro-cli SQLite database."""
+def make_sessions(tmp_path: Path) -> Callable[[list[ConversationSpec]], Path]:
+    """Return a builder that writes synthetic kiro-cli session files."""
 
     def build(rows: list[ConversationSpec]) -> Path:
-        """Create the database file from conversation specs and return its path."""
-        db_path = tmp_path / "data.sqlite3"
-        conn = sqlite3.connect(db_path)
-        try:
-            conn.execute(
-                "CREATE TABLE conversations_v2 (key TEXT, conversation_id TEXT, "
-                "value TEXT, created_at INTEGER, updated_at INTEGER)",
-            )
-            for cid, folder, model, credit, updated in rows:
-                blob = _conversation_json(folder, model, credit)
-                conn.execute(
-                    "INSERT INTO conversations_v2 VALUES (?, ?, ?, ?, ?)",
-                    (folder, cid, blob, updated, updated),
-                )
-            conn.commit()
-        finally:
-            conn.close()
-        return db_path
+        """Write one session file per spec and return the sessions directory."""
+        sessions_dir = tmp_path / "sessions" / "cli"
+        sessions_dir.mkdir(parents=True)
+        for cid, folder, model, credit, updated in rows:
+            blob = _session_json(cid, folder, model, credit, updated)
+            (sessions_dir / f"{cid}.json").write_text(blob)
+        return sessions_dir
 
     return build

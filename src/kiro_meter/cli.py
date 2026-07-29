@@ -17,7 +17,7 @@ from kiro_meter.config import (
     run_first_time_setup,
     save_config,
 )
-from kiro_meter.db import DEFAULT_DB_PATH
+from kiro_meter.db import DEFAULT_DB_PATH, DEFAULT_SESSIONS_DIR
 from kiro_meter.models import AppConfig
 from kiro_meter.pace import HolidayUnavailableError, NagerHolidayProvider
 
@@ -45,7 +45,11 @@ def main(argv: list[str] | None = None) -> int:
             else None
         )
         ctx = RunContext(
-            db_path=DEFAULT_DB_PATH, client=client, tz=tz, holidays=holidays
+            db_path=DEFAULT_DB_PATH,
+            sessions_dir=DEFAULT_SESSIONS_DIR,
+            client=client,
+            tz=tz,
+            holidays=holidays,
         )
         if args.once:
             return run_once(cfg, ctx, now=datetime.now(UTC), as_json=args.json)

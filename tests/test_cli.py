@@ -30,15 +30,23 @@ def test_version_is_a_string() -> None:
 
 
 def test_run_once_json_local_only(
-    make_db: Callable[[list[ConversationSpec]], Path],
+    make_sessions: Callable[[list[ConversationSpec]], Path],
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     """--once with --no-account emits JSON from local data and exits 20."""
     now = datetime(2026, 7, 28, 12, 0, tzinfo=UTC)
-    db = make_db([("c1", "/p", "haiku", 0.02, int(now.timestamp() * _MS))])
+    sessions_dir = make_sessions(
+        [("c1", "/p", "haiku", 0.02, int(now.timestamp() * _MS))]
+    )
     cfg = AppConfig(use_account=False)
     with httpx.Client() as client:
-        ctx = RunContext(db_path=db, client=client, tz=UTC, holidays=None)
+        ctx = RunContext(
+            db_path=sessions_dir.parent,
+            sessions_dir=sessions_dir,
+            client=client,
+            tz=UTC,
+            holidays=None,
+        )
         code = run_once(cfg, ctx, now=now, as_json=True)
     out = capsys.readouterr().out
     assert '"today_credits"' in out

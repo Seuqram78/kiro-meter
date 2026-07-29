@@ -1,9 +1,9 @@
-"""Read-only access to the Kiro CLI local SQLite database."""
+"""Read-only access to Kiro CLI's local session files and SQLite database."""
 
 from __future__ import annotations
 
 import json
-import sqlite3
+import re
 from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -13,53 +13,75 @@ from kiro_meter.models import ConversationRow, DbSnapshot
 if TYPE_CHECKING:
     from datetime import date, tzinfo
 
+# Still holds the kiro-cli auth token (``auth_kv``); conversation history has
+# moved to per-session files under DEFAULT_SESSIONS_DIR (see load_conversations).
 DEFAULT_DB_PATH: Path = Path.home() / ".local/share/kiro-cli/data.sqlite3"
+DEFAULT_SESSIONS_DIR: Path = Path.home() / ".kiro/sessions/cli"
 
 _MS_PER_SECOND = 1000
 _MS_PER_MINUTE = 60_000
 _CREDIT_UNIT = "credit"
 _DEFAULT_BURN_WINDOW_MIN = 15
 _DEFAULT_TOP_N = 5
+_SUBSECOND = re.compile(r"(\.\d{6})\d+")
 
 
-def load_conversations(db_path: Path) -> list[ConversationRow]:
-    """Load one ConversationRow for each row in ``conversations_v2``.
+def load_conversations(sessions_dir: Path) -> list[ConversationRow]:
+    """Load one ConversationRow for each Kiro CLI session file.
 
     Args:
-        db_path: Path to the Kiro CLI ``data.sqlite3`` file.
+        sessions_dir: Path to Kiro CLI's ``sessions/cli`` directory, where
+            each conversation is stored as a ``{session_id}.json`` file.
 
     Returns:
-        The parsed conversation rows (empty if the table is empty).
+        The parsed conversation rows (empty if the directory has no session
+        files). Files that fail to parse (e.g. mid-write by kiro-cli) are
+        skipped rather than raising, since these files are not written
+        atomically.
     """
-    uri = f"file:{db_path}?mode=ro"
-    conn = sqlite3.connect(uri, uri=True)
-    try:
-        cursor = conn.execute(
-            "SELECT conversation_id, key, value, updated_at FROM conversations_v2",
-        )
-        return [
-            _parse_row(cid, key, value, updated) for cid, key, value, updated in cursor
-        ]
-    finally:
-        conn.close()
+    if not sessions_dir.is_dir():
+        return []
+    rows = []
+    for path in sessions_dir.glob("*.json"):
+        try:
+            data = json.loads(path.read_text())
+        except (OSError, json.JSONDecodeError):
+            continue
+        row = _parse_session(data)
+        if row is not None:
+            rows.append(row)
+    return rows
 
 
-def _parse_row(cid: str, key: str, value: str, updated_at_ms: int) -> ConversationRow:
-    """Turn one raw ``conversations_v2`` row into a ConversationRow."""
-    data = json.loads(value)
+def _parse_session(data: dict[str, object]) -> ConversationRow | None:
+    """Turn one session JSON document into a ConversationRow."""
+    session_id = data.get("session_id")
+    updated_at = data.get("updated_at")
+    if not isinstance(session_id, str) or not isinstance(updated_at, str):
+        return None
+    state = data.get("session_state", {}) or {}
+    turns = state.get("conversation_metadata", {}).get("user_turn_metadatas", [])
     credit_total = sum(
-        item.get("value", 0.0)
-        for item in data.get("user_turn_metadata", {}).get("usage_info", [])
-        if item.get("unit") == _CREDIT_UNIT
+        usage.get("value", 0.0)
+        for turn in turns
+        for usage in turn.get("metering_usage", [])
+        if usage.get("unit") == _CREDIT_UNIT
     )
-    history = data.get("history") or []
-    latest = history[-1] if history else {}
-    model_id = latest.get("request_metadata", {}).get("model_id")
-    env_state = latest.get("user", {}).get("env_context", {}).get("env_state", {})
-    cwd = env_state.get("current_working_directory")
+    model_id = state.get("rts_model_state", {}).get("model_info", {}).get("model_id")
+    cwd = data.get("cwd")
     return ConversationRow(
-        cid, cwd or key, model_id, float(credit_total), int(updated_at_ms)
+        session_id,
+        cwd or session_id,
+        model_id,
+        float(credit_total),
+        _parse_timestamp_ms(updated_at),
     )
+
+
+def _parse_timestamp_ms(value: str) -> int:
+    """Parse an ISO-8601 UTC timestamp (``...Z``) to epoch milliseconds."""
+    trimmed = _SUBSECOND.sub(r"\1", value).replace("Z", "+00:00")
+    return int(datetime.fromisoformat(trimmed).timestamp() * _MS_PER_SECOND)
 
 
 def build_db_snapshot(

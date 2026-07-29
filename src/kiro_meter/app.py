@@ -45,6 +45,7 @@ class RunContext:
     """Shared dependencies threaded through the snapshot pipeline."""
 
     db_path: Path
+    sessions_dir: Path
     client: httpx.Client
     tz: tzinfo
     holidays: HolidayProvider | None
@@ -81,7 +82,7 @@ def build_snapshot(
     """Read local spend and combine it with the account into a Snapshot."""
     since = billing_cycle_start(account.next_reset) if account is not None else None
     db = build_db_snapshot(
-        load_conversations(ctx.db_path), now=now, tz=ctx.tz, since=since
+        load_conversations(ctx.sessions_dir), now=now, tz=ctx.tz, since=since
     )
     pace = (
         compute_pace(account, db, cfg, now=now, holidays=ctx.holidays)
