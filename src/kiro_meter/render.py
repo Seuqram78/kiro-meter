@@ -192,6 +192,7 @@ def _usage_table(db: DbSnapshot, *, scoped: bool) -> RenderableType:
         box=None,
         pad_edge=False,
         padding=(0, 2, 0, 0),
+        expand=True,
     )
     table.add_column("folder", overflow="fold", max_width=_FOLDER_WIDTH)
     table.add_column("model", no_wrap=True, style="dim")
@@ -207,6 +208,12 @@ def _usage_table(db: DbSnapshot, *, scoped: bool) -> RenderableType:
             f"{amount:.2f}",
             str(turns),
         )
+    total_credits = sum(amount for *_, amount in db.by_folder_model)
+    total_turns = sum(turns for _, _, turns, _ in db.by_folder_model)
+    table.add_row("", "", "", "", "")
+    table.add_row(
+        "Total", "", "", f"{total_credits:.2f}", str(total_turns), style="bold"
+    )
     return table
 
 

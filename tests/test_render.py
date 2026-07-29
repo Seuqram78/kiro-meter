@@ -86,6 +86,23 @@ def test_usage_table_aggregates_folder_and_model() -> None:
     assert "12" in text  # turn count for proj-b/haiku
 
 
+def test_usage_table_shows_total_row() -> None:
+    """A Total row sums credits and turns across every folder/model group."""
+    snap = Snapshot(_db(), _account(), "ok", _pace(), _NOW)
+    text = _render(snap)
+    assert "Total" in text
+    assert "0.31" in text  # 0.21 + 0.10
+    assert "20" in text  # 8 + 12
+
+
+def test_usage_table_fills_console_width() -> None:
+    """The usage table expands to the full panel width, not just its content."""
+    snap = Snapshot(_db(), _account(), "ok", _pace(), _NOW)
+    text = _render(snap)
+    lines = [line for line in text.splitlines() if "proj-a" in line]
+    assert len(lines[0].rstrip()) >= _CONSOLE_WIDTH - 1
+
+
 def test_needs_login_banner_shown_and_local_still_rendered() -> None:
     """Expired session shows a banner but keeps local spend."""
     snap = Snapshot(_db(), None, "needs_login", None, _NOW)
