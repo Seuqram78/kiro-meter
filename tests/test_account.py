@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+import sqlite3
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
@@ -9,14 +11,16 @@ import httpx
 import pytest
 
 from kiro_meter.account import (
+    KiroToken,
     NeedsLoginError,
-    SocialToken,
     fetch_account_info,
+    load_token,
     token_expired,
 )
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+    from pathlib import Path
 
 _NOW = datetime(2026, 7, 28, 12, 0, tzinfo=UTC)
 
@@ -27,16 +31,54 @@ _FIRST_CALL = 1
 _SECOND_CALL = 2
 _FAKE_ACCESS = "test-access"
 _FAKE_REFRESH = "test-refresh"
+_OIDC_ARN = "arn:aws:codewhisperer:eu-west-1:1:profile/ORG"
+_OIDC_ROW = "kirocli:odic:token"
 
 
-def _token() -> SocialToken:
-    return SocialToken(
+def _token() -> KiroToken:
+    return KiroToken(
         access_token=_FAKE_ACCESS,
         refresh_token=_FAKE_REFRESH,
         profile_arn="arn:aws:codewhisperer:us-east-1:1:profile/X",
         expires_at=datetime(2026, 7, 28, 13, 0, tzinfo=UTC),
         region="us-east-1",
     )
+
+
+def _write_auth_db(path: Path, *, token_key: str, token: dict[str, object]) -> None:
+    conn = sqlite3.connect(path)
+    try:
+        conn.execute("CREATE TABLE auth_kv (key TEXT PRIMARY KEY, value TEXT)")
+        conn.execute("CREATE TABLE state (key TEXT PRIMARY KEY, value BLOB)")
+        conn.execute(
+            "INSERT INTO auth_kv VALUES (?, ?)", (token_key, json.dumps(token))
+        )
+        conn.execute(
+            "INSERT INTO state VALUES (?, ?)",
+            ("api.codewhisperer.profile", json.dumps({"arn": _OIDC_ARN})),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def test_load_token_oidc_uses_state_profile_arn(tmp_path: Path) -> None:
+    """An OIDC (Identity Center) token resolves its profile ARN from state."""
+    db = tmp_path / "data.sqlite3"
+    _write_auth_db(
+        db,
+        token_key=_OIDC_ROW,
+        token={
+            "access_token": _FAKE_ACCESS,
+            "refresh_token": _FAKE_REFRESH,
+            "expires_at": "2026-07-28T13:00:00+00:00",
+        },
+    )
+    tok = load_token(db)
+    assert tok is not None
+    assert tok.access_token == _FAKE_ACCESS
+    assert tok.profile_arn == _OIDC_ARN
+    assert tok.region == "eu-west-1"
 
 
 def _mock_client(handler: Callable[[httpx.Request], httpx.Response]) -> httpx.Client:

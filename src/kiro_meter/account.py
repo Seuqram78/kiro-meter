@@ -16,9 +16,15 @@ if TYPE_CHECKING:
 
     import httpx
 
-_AUTH_ROW = "kirocli:social:token"
+_TOKEN_KEYS = (
+    "kirocli:social:token",  # social login (Google/GitHub/Microsoft)
+    "kirocli:odic:token",  # AWS SSO OIDC (Builder ID / Identity Center)
+    "codewhisperer:odic:token",  # legacy AWS SSO OIDC
+)
+_PROFILE_STATE_KEY = "api.codewhisperer.profile"
 _DEFAULT_REGION = "us-east-1"
 _ARN_REGION = re.compile(r"arn:aws:\w+:([a-z0-9-]+):")
+_SUBSECOND = re.compile(r"(\.\d{6})\d+")
 _URL_TEMPLATE = "https://q.{region}.amazonaws.com/getUsageLimits"
 _HEADERS = {"x-amzn-kiro-agent-mode": "vibe"}
 _TIMEOUT_SECONDS = 15.0
@@ -39,8 +45,11 @@ class NeedsLoginError(Exception):
 
 
 @dataclass(frozen=True)
-class SocialToken:
-    """A Kiro CLI bearer token read from the local auth store."""
+class KiroToken:
+    """A Kiro CLI bearer token read from the local auth store.
+
+    Covers both social login and AWS SSO OIDC (Builder ID / Identity Center).
+    """
 
     access_token: str
     refresh_token: str
@@ -49,34 +58,66 @@ class SocialToken:
     region: str
 
 
-def load_token(db_path: Path) -> SocialToken | None:
-    """Load the social token from the Kiro CLI ``auth_kv`` table.
+def load_token(db_path: Path) -> KiroToken | None:
+    """Load the Kiro CLI bearer token from the ``auth_kv`` table.
+
+    Supports social login and AWS SSO OIDC (Builder ID / Identity Center). For
+    OIDC the profile ARN is usually absent from the token itself and is read
+    from the ``state`` table instead.
 
     Args:
         db_path: Path to the Kiro CLI ``data.sqlite3`` file.
 
     Returns:
-        The parsed token, or ``None`` if no token row exists.
+        The parsed token, or ``None`` if no usable token is stored.
     """
     uri = f"file:{db_path}?mode=ro"
     conn = sqlite3.connect(uri, uri=True)
     try:
-        row = conn.execute(
-            "SELECT value FROM auth_kv WHERE key = ?",
-            (_AUTH_ROW,),
-        ).fetchone()
+        data = _first_token(conn)
+        if data is None or "access_token" not in data:
+            return None
+        raw_arn = data.get("profile_arn")
+        arn = raw_arn if isinstance(raw_arn, str) and raw_arn else _profile_arn(conn)
     finally:
         conn.close()
+    if not arn:
+        return None
+    refresh = data.get("refresh_token")
+    return KiroToken(
+        access_token=str(data["access_token"]),
+        refresh_token=refresh if isinstance(refresh, str) else "",
+        profile_arn=arn,
+        expires_at=_parse_expiry(data.get("expires_at")),
+        region=_region_from_arn(arn),
+    )
+
+
+def _first_token(conn: sqlite3.Connection) -> dict[str, object] | None:
+    """Return the first token payload found across the known auth keys."""
+    for key in _TOKEN_KEYS:
+        row = conn.execute("SELECT value FROM auth_kv WHERE key = ?", (key,)).fetchone()
+        if row is not None:
+            return json.loads(row[0])
+    return None
+
+
+def _profile_arn(conn: sqlite3.Connection) -> str | None:
+    """Read the CodeWhisperer profile ARN from the ``state`` table."""
+    row = conn.execute(
+        "SELECT value FROM state WHERE key = ?", (_PROFILE_STATE_KEY,)
+    ).fetchone()
     if row is None:
         return None
-    data = json.loads(row[0])
-    return SocialToken(
-        access_token=data["access_token"],
-        refresh_token=data["refresh_token"],
-        profile_arn=data["profile_arn"],
-        expires_at=datetime.fromisoformat(data["expires_at"]),
-        region=_region_from_arn(data["profile_arn"]),
-    )
+    arn = json.loads(row[0]).get("arn")
+    return arn if isinstance(arn, str) else None
+
+
+def _parse_expiry(value: object) -> datetime:
+    """Parse an ISO-8601 expiry, trimming sub-microseconds; far future if absent."""
+    if not isinstance(value, str):
+        return datetime.max.replace(tzinfo=UTC)
+    return datetime.fromisoformat(_SUBSECOND.sub(r"\1", value))
 
 
 def _region_from_arn(profile_arn: str) -> str:
@@ -85,13 +126,13 @@ def _region_from_arn(profile_arn: str) -> str:
     return match.group(1) if match else _DEFAULT_REGION
 
 
-def token_expired(token: SocialToken, now: datetime) -> bool:
+def token_expired(token: KiroToken, now: datetime) -> bool:
     """Return whether the token is at or past its expiry."""
     return now >= token.expires_at
 
 
 def fetch_account_info(
-    token: SocialToken,
+    token: KiroToken,
     *,
     client: httpx.Client,
     now: datetime,
