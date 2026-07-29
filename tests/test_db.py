@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
@@ -24,6 +25,7 @@ _EXPECTED_BURN = 0.01
 _EXPECTED_TURNS = 3
 _BURN_WINDOW_MIN = 15
 _NDIGITS = 2
+_EXPECTED_AUTO_MODEL_CREDIT = 0.04
 
 
 def _ms(dt: datetime) -> int:
@@ -40,6 +42,44 @@ def test_load_conversations_parses_credits_folder_model(
     assert rows[0].credits == _EXPECTED_ONE_CREDIT
     assert rows[0].folder == "/proj-a"
     assert rows[0].model_id == "haiku-4.5"
+
+
+def test_load_conversations_handles_null_model_info(tmp_path: Path) -> None:
+    """A session with ``model_info: null`` (the "auto" model) doesn't crash the read."""
+    sessions_dir = tmp_path / "sessions" / "cli"
+    sessions_dir.mkdir(parents=True)
+    session = {
+        "session_id": "auto-session",
+        "cwd": "/proj-auto",
+        "updated_at": "2026-07-28T12:00:00.000000Z",
+        "session_state": {
+            "conversation_metadata": {
+                "user_turn_metadatas": [
+                    {"metering_usage": [{"value": 0.04, "unit": "credit"}]},
+                ],
+            },
+            "rts_model_state": {"model_info": None},
+        },
+    }
+    (sessions_dir / "auto-session.json").write_text(json.dumps(session))
+
+    rows = load_conversations(sessions_dir)
+
+    assert len(rows) == 1
+    assert rows[0].model_id is None
+    assert rows[0].credits == _EXPECTED_AUTO_MODEL_CREDIT
+
+
+def test_by_folder_model_includes_more_than_five_groups(
+    make_sessions: Callable[[list[ConversationSpec]], Path],
+) -> None:
+    """Every folder/model group is kept, not just the top 5."""
+    specs = [
+        (f"c{i}", f"/proj-{i}", "haiku", 0.01 * i, _ms(_NOW)) for i in range(1, 8)
+    ]
+    sessions_dir = make_sessions(specs)
+    snap = build_db_snapshot(load_conversations(sessions_dir), now=_NOW, tz=UTC)
+    assert len(snap.by_folder_model) == len(specs)
 
 
 def test_snapshot_aggregates_today_and_breakdowns(

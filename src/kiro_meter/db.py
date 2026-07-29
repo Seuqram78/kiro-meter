@@ -35,9 +35,10 @@ def load_conversations(sessions_dir: Path) -> list[ConversationRow]:
 
     Returns:
         The parsed conversation rows (empty if the directory has no session
-        files). Files that fail to parse (e.g. mid-write by kiro-cli) are
-        skipped rather than raising, since these files are not written
-        atomically.
+        files). Files that fail to parse or don't match the expected shape
+        (kiro-cli's session format is undocumented and can drift, and files
+        are not written atomically so may be read mid-write) are skipped
+        rather than raising.
     """
     if not sessions_dir.is_dir():
         return []
@@ -45,9 +46,9 @@ def load_conversations(sessions_dir: Path) -> list[ConversationRow]:
     for path in sessions_dir.glob("*.json"):
         try:
             data = json.loads(path.read_text())
-        except (OSError, json.JSONDecodeError):
+            row = _parse_session(data)
+        except (OSError, json.JSONDecodeError, AttributeError, TypeError):
             continue
-        row = _parse_session(data)
         if row is not None:
             rows.append(row)
     return rows
@@ -59,17 +60,18 @@ def _parse_session(data: dict[str, object]) -> ConversationRow | None:
     updated_at = data.get("updated_at")
     if not isinstance(session_id, str) or not isinstance(updated_at, str):
         return None
-    state = data.get("session_state", {}) or {}
-    turns = state.get("conversation_metadata", {}).get("user_turn_metadatas", [])
+    state = data.get("session_state") or {}
+    metadata = state.get("conversation_metadata") or {}
+    turns = metadata.get("user_turn_metadatas") or []
     credit_total = sum(
         usage.get("value", 0.0)
         for turn in turns
-        for usage in turn.get("metering_usage", [])
+        for usage in turn.get("metering_usage") or []
         if usage.get("unit") == _CREDIT_UNIT
     )
-    rts_model_state = state.get("rts_model_state", {})
-    model_info = rts_model_state.get("model_info") if isinstance(rts_model_state, dict) else None
-    model_id = model_info.get("model_id") if isinstance(model_info, dict) else None
+    rts_model_state = state.get("rts_model_state") or {}
+    model_info = rts_model_state.get("model_info") or {}
+    model_id = model_info.get("model_id")
     cwd = data.get("cwd")
     return ConversationRow(
         session_id,
@@ -127,7 +129,7 @@ def build_db_snapshot(
         session_credits=session.credits if session else 0.0,
         session_turns=1 if session else 0,
         burn_rate_per_min=burn,
-        by_folder_model=_by_folder_model(usage_rows, n=_DEFAULT_TOP_N),
+        by_folder_model=_by_folder_model(usage_rows),
         recent=tuple(ordered[:_DEFAULT_TOP_N]),
         approx=True,
     )
@@ -140,10 +142,8 @@ def _local_date(updated_at_ms: int, tz: tzinfo) -> date:
 
 def _by_folder_model(
     rows: list[ConversationRow],
-    *,
-    n: int,
 ) -> tuple[tuple[str, str, int, float], ...]:
-    """Group credits and turn counts by (folder, model), top ``n`` descending."""
+    """Group credits and turn counts by (folder, model), all groups descending."""
     turns: dict[tuple[str, str], int] = {}
     totals: dict[tuple[str, str], float] = {}
     for row in rows:
@@ -153,5 +153,5 @@ def _by_folder_model(
     ranked = sorted(totals.items(), key=lambda item: item[1], reverse=True)
     return tuple(
         (folder, model, turns[folder, model], total)
-        for (folder, model), total in ranked[:n]
+        for (folder, model), total in ranked
     )

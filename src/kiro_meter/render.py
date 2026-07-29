@@ -193,9 +193,7 @@ def _usage_table(db: DbSnapshot, *, scoped: bool) -> RenderableType:
         pad_edge=False,
         padding=(0, 2, 0, 0),
     )
-    table.add_column(
-        "folder", overflow="ellipsis", max_width=_FOLDER_WIDTH, no_wrap=True
-    )
+    table.add_column("folder", overflow="fold", max_width=_FOLDER_WIDTH)
     table.add_column("model", no_wrap=True, style="dim")
     table.add_column("", no_wrap=True)
     table.add_column("cr", justify="right")
