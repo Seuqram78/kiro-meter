@@ -10,9 +10,12 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
-if TYPE_CHECKING:
-    from rich.console import RenderableType
+from kiro_meter.db import FULL_NESTING
 
+if TYPE_CHECKING:
+    from rich.console import Console, RenderableType
+
+    from kiro_meter.interaction import LiveState
     from kiro_meter.models import (
         AccountInfo,
         AppConfig,
@@ -31,9 +34,14 @@ _PARTIALS = "▏▎▍▌▋▊▉"
 _PCT_NEAR_LIMIT = 75.0
 _PCT_AT_LIMIT = 100.0
 _LOGIN_HINT = (
-    "Kiro session expired - run kiro-cli (or kiro-cli user login) "
-    "to refresh, then press r."
+    "Kiro session expired - run kiro-cli (or kiro-cli user login) to refresh."
 )
+# Table's own fixed rows (blank separator before it, title, header, blank
+# separator before the total row, and the total row) plus the Panel's
+# border and padding=(1, 2) top/bottom blank lines.
+_TABLE_CHROME_LINES = 5
+_PANEL_CHROME_LINES = 4
+_KEY_HINTS_LINES = 1
 
 
 def render_snapshot(
@@ -41,6 +49,8 @@ def render_snapshot(
     cfg: AppConfig,
     *,
     countdown: float | None = None,
+    ui: LiveState | None = None,
+    console: Console | None = None,
 ) -> RenderableType:
     """Turn a Snapshot into a titled panel of usage sections.
 
@@ -50,31 +60,104 @@ def render_snapshot(
         countdown: Fraction (0-1) of the way to the next reading. When set,
             a live status line with the next-reading meter is drawn. ``None``
             (one-shot) draws no footer.
+        ui: Live keyboard-driven state (scroll, nesting, local visibility).
+            ``None`` (one-shot) renders every local section and the full,
+            untruncated usage table, matching pre-interactive behaviour.
+        console: The console the view is drawn to, used to size the
+            scrollable table to the available height. Required together with
+            ``ui`` to enable row windowing; ignored otherwise.
 
     Returns:
         A rich renderable ready to hand to ``Console.print`` or ``Live``.
     """
+    show_local = ui is None or ui.show_local
     official: list[RenderableType] = [_account_section(snap)]
 
-    budget: list[RenderableType] = [_today_line(snap.db, snap.pace)]
-    if snap.pace is not None:
-        budget.extend(_pace_lines(snap.pace))
-    if snap.db.burn_rate_per_min is not None:
-        budget.append(_burn_line(snap.db.burn_rate_per_min))
+    budget: list[RenderableType] = []
+    if show_local:
+        budget.append(_today_line(snap.db, snap.pace))
+        if snap.pace is not None:
+            budget.extend(_pace_lines(snap.pace))
+        if snap.db.burn_rate_per_min is not None:
+            budget.append(_burn_line(snap.db.burn_rate_per_min))
 
-    groups = [official, budget]
-    if snap.db.by_folder_model:
-        groups.append([_usage_table(snap.db, scoped=snap.account is not None)])
+    footer: list[RenderableType] = []
     if countdown is not None:
-        groups.append([_footer(snap, countdown)])
+        footer.append(_footer(snap, countdown))
 
-    body = _stack(groups)
+    table_group: list[RenderableType] = []
+    row_window: tuple[int, int, int] | None = None
+    if show_local and snap.db.by_folder_model:
+        visible_rows = _visible_rows(official, budget, footer, ui=ui, console=console)
+        scroll = ui.scroll if ui is not None else 0
+        row_window = _row_window(len(snap.db.by_folder_model), scroll, visible_rows)
+        table_group.append(
+            _usage_table(
+                snap.db, scoped=snap.account is not None, row_window=row_window
+            )
+        )
+
+    if ui is not None:
+        footer.append(_key_hints(ui, row_window))
+
+    body = _stack([official, budget, table_group, footer])
     return Panel(
         body,
         title=_title(snap, cfg),
         title_align="left",
         padding=(1, 2),
     )
+
+
+def _visible_rows(
+    official: list[RenderableType],
+    budget: list[RenderableType],
+    footer: list[RenderableType],
+    *,
+    ui: LiveState | None,
+    console: Console | None,
+) -> int | None:
+    """Return how many table rows fit, or None to render every row unwindowed."""
+    if ui is None or console is None:
+        return None
+    chrome = _stack([official, budget, footer])
+    chrome_height = len(console.render_lines(chrome, console.options, pad=False))
+    overhead = (
+        chrome_height
+        + _TABLE_CHROME_LINES
+        + _PANEL_CHROME_LINES
+        + _KEY_HINTS_LINES
+    )
+    return max(1, console.size.height - overhead)
+
+
+def _row_window(
+    total: int, scroll: int, visible_rows: int | None
+) -> tuple[int, int, int]:
+    """Compute the visible (start, end, total) slice of a scrollable table.
+
+    ``visible_rows=None`` disables windowing (one-shot mode) - the full
+    range is always "visible".
+    """
+    if visible_rows is None or visible_rows >= total:
+        return (0, total, total)
+    max_start = max(0, total - visible_rows)
+    start = max(0, min(scroll, max_start))
+    return (start, start + visible_rows, total)
+
+
+def _key_hints(
+    ui: LiveState, row_window: tuple[int, int, int] | None
+) -> RenderableType:
+    """Render the nesting level, scroll position, and key bindings."""
+    nesting_label = "full" if ui.nesting >= FULL_NESTING else str(ui.nesting)
+    parts = [f"nesting {nesting_label}"]
+    if row_window is not None:
+        start, end, total = row_window
+        if total:
+            parts.append(f"rows {start + 1}-{end} of {total}")
+    parts.append("↑↓ scroll  ←→ nesting  l local  q quit")
+    return Text("   ".join(parts), style="dim")
 
 
 def _stack(groups: list[list[RenderableType]]) -> RenderableType:
@@ -181,9 +264,23 @@ def _burn_line(burn_rate_per_min: float) -> RenderableType:
     return Text(f"Burn  {burn_rate_per_min:.3f} cr/min (local)", style="dim")
 
 
-def _usage_table(db: DbSnapshot, *, scoped: bool) -> RenderableType:
-    """Render a bar chart of credits grouped by folder and model."""
-    peak = max(amount for *_, amount in db.by_folder_model)
+def _usage_table(
+    db: DbSnapshot,
+    *,
+    scoped: bool,
+    row_window: tuple[int, int, int] | None = None,
+) -> RenderableType:
+    """Render a bar chart of credits grouped by folder and model.
+
+    ``row_window`` (start, end, total), when given, draws only that slice of
+    rows - but bar scaling and the Total row always use the full, unwindowed
+    data, so they stay stable while scrolling.
+    """
+    all_rows = db.by_folder_model
+    peak = max(amount for *_, amount in all_rows)
+    start, end, _total = (
+        row_window if row_window is not None else (0, len(all_rows), len(all_rows))
+    )
     scope = "this cycle" if scoped else "recent"
     table = Table(
         title=f"Usage by folder & model ({scope})",
@@ -199,7 +296,7 @@ def _usage_table(db: DbSnapshot, *, scoped: bool) -> RenderableType:
     table.add_column("", no_wrap=True)
     table.add_column("cr", justify="right")
     table.add_column("turns", justify="right", style="dim")
-    for folder, model, turns, amount in db.by_folder_model:
+    for folder, model, turns, amount in all_rows[start:end]:
         proportion = amount / peak if peak else 0.0
         table.add_row(
             _short_folder(folder),
@@ -208,8 +305,8 @@ def _usage_table(db: DbSnapshot, *, scoped: bool) -> RenderableType:
             f"{amount:.2f}",
             str(turns),
         )
-    total_credits = sum(amount for *_, amount in db.by_folder_model)
-    total_turns = sum(turns for _, _, turns, _ in db.by_folder_model)
+    total_credits = sum(amount for *_, amount in all_rows)
+    total_turns = sum(turns for _, _, turns, _ in all_rows)
     table.add_row("", "", "", "", "")
     table.add_row(
         "Total", "", "", f"{total_credits:.2f}", str(total_turns), style="bold"

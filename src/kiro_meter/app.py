@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import json
+import queue
 import sys
+import threading
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING
 
 import httpx
+import readchar
 from rich.console import Console
 from rich.live import Live
 
@@ -18,10 +21,21 @@ from kiro_meter.account import (
     load_token,
     token_expired,
 )
-from kiro_meter.db import build_db_snapshot, load_conversations
+from kiro_meter.db import (
+    build_db_snapshot,
+    collapse_by_nesting,
+    load_conversations,
+    max_folder_depth,
+)
+from kiro_meter.interaction import LiveState, apply_key, normalize
 from kiro_meter.models import Snapshot
 from kiro_meter.pace import billing_cycle_start, compute_pace
 from kiro_meter.render import render_snapshot
+
+try:
+    import termios
+except ImportError:  # Windows has no termios
+    termios = None
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -32,6 +46,7 @@ if TYPE_CHECKING:
         AccountInfo,
         AccountStatus,
         AppConfig,
+        ConversationRow,
         DbSnapshot,
         PaceInfo,
     )
@@ -116,35 +131,136 @@ def run_live(
     *,
     now_fn: Callable[[], datetime],
 ) -> None:
-    """Animate a spinner each tick; poll spend and the limit on slower cadences."""
+    """Animate a spinner each tick; poll spend and the limit on slower cadences.
+
+    Renders full-height in the terminal's alternate screen buffer, scrollable
+    and re-nestable live via the keyboard (see ``kiro_meter.interaction``).
+    Disk reads stay throttled to ``cfg.refresh_seconds``/``limit_refresh_seconds``,
+    but re-aggregating by the current nesting level happens every tick from
+    the cached rows, so nesting changes feel instant.
+    """
     account: AccountInfo | None = None
     status: AccountStatus = "disabled"
-    snap: Snapshot | None = None
+    rows: list[ConversationRow] = []
     last_fetch = 0.0
     last_poll = 0.0
-    with Live(auto_refresh=False, screen=False) as live:
-        try:
-            while True:
-                now = now_fn()
-                monotonic = time.monotonic()
-                if (
-                    last_fetch == 0.0
-                    or monotonic - last_fetch >= cfg.limit_refresh_seconds
-                ):
-                    account, status = resolve_account(cfg, ctx, now=now)
-                    last_fetch = monotonic
-                if snap is None or monotonic - last_poll >= cfg.refresh_seconds:
-                    snap = build_snapshot(
-                        cfg, ctx, account=account, account_status=status, now=now
+    ui = LiveState()
+    key_queue: queue.Queue[str] = queue.Queue()
+    stop_reading = threading.Event()
+    reader = threading.Thread(
+        target=_read_keys, args=(key_queue, stop_reading), daemon=True
+    )
+    fd = sys.stdin.fileno() if sys.stdin.isatty() else None
+    saved_termios = _save_termios(fd)
+    reader.start()
+
+    try:
+        with Live(auto_refresh=False, screen=True) as live:
+            try:
+                while True:
+                    now = now_fn()
+                    monotonic = time.monotonic()
+                    if _due(last_fetch, monotonic, cfg.limit_refresh_seconds):
+                        account, status = resolve_account(cfg, ctx, now=now)
+                        last_fetch = monotonic
+                    if not rows or _due(last_poll, monotonic, cfg.refresh_seconds):
+                        rows = load_conversations(ctx.sessions_dir)
+                        last_poll = monotonic
+
+                    ui = _drain_keys(key_queue, ui)
+                    if ui.quit:
+                        break
+                    ui = normalize(ui, max_nesting=max_folder_depth(rows))
+
+                    db = _local_snapshot(rows, now, ctx.tz, account, ui.nesting)
+                    pace = (
+                        compute_pace(account, db, cfg, now=now, holidays=ctx.holidays)
+                        if account is not None
+                        else None
                     )
-                    last_poll = monotonic
-                countdown = min((monotonic - last_poll) / cfg.refresh_seconds, 1.0)
-                live.update(
-                    render_snapshot(snap, cfg, countdown=countdown), refresh=True
-                )
-                time.sleep(_TICK_SECONDS)
+                    snap = Snapshot(db, account, status, pace, now)
+                    countdown = min((monotonic - last_poll) / cfg.refresh_seconds, 1.0)
+                    live.update(
+                        render_snapshot(
+                            snap, cfg, countdown=countdown, ui=ui, console=live.console
+                        ),
+                        refresh=True,
+                    )
+                    time.sleep(_TICK_SECONDS)
+            except KeyboardInterrupt:
+                pass
+    finally:
+        stop_reading.set()
+        _restore_termios(fd, saved_termios)
+
+
+def _due(last: float, monotonic: float, interval: float) -> bool:
+    """Whether a cadence last run at `last` is due again at `monotonic`."""
+    return last == 0.0 or monotonic - last >= interval
+
+
+def _drain_keys(key_queue: queue.Queue[str], ui: LiveState) -> LiveState:
+    """Apply every queued keypress to ui; the most recent state wins."""
+    while not key_queue.empty():
+        ui = apply_key(ui, key_queue.get_nowait())
+    return ui
+
+
+def _local_snapshot(
+    rows: list[ConversationRow],
+    now: datetime,
+    tz: tzinfo,
+    account: AccountInfo | None,
+    nesting: int,
+) -> DbSnapshot:
+    """Aggregate cached rows, re-collapsed to `nesting` - no disk I/O involved.
+
+    Kept separate from ``build_snapshot`` (used by the one-shot path) because
+    nesting is display-only live-view state: cheap to re-collapse every tick
+    straight from the already-aggregated ``by_folder_model``.
+    """
+    since = billing_cycle_start(account.next_reset) if account is not None else None
+    db = build_db_snapshot(rows, now=now, tz=tz, since=since)
+    return replace(
+        db, by_folder_model=collapse_by_nesting(db.by_folder_model, nesting)
+    )
+
+
+def _read_keys(key_queue: queue.Queue[str], stop_event: threading.Event) -> None:
+    """Background thread target: push keys onto the queue until told to stop.
+
+    ``readchar.readkey()`` raises ``KeyboardInterrupt`` in-thread on Ctrl-C
+    rather than returning it as a key (and a raised exception in a
+    non-main thread doesn't interrupt the main loop) - catch it here and
+    enqueue the same sentinel ``apply_key`` treats as a quit key, so Ctrl-C
+    quits cleanly regardless of whether a real SIGINT also reaches the main
+    thread.
+    """
+    while not stop_event.is_set():
+        try:
+            key_queue.put(readchar.readkey())
         except KeyboardInterrupt:
-            pass
+            key_queue.put(readchar.key.CTRL_C)
+            return
+
+
+def _save_termios(fd: int | None) -> list[object] | None:
+    """Snapshot terminal attributes to force-restore on exit, POSIX only.
+
+    ``readchar`` already saves/restores per keypress, but only covers the
+    thread that's reading; this closes the gap where the process tears down
+    while that background read is in flight.
+    """
+    if fd is None or termios is None:
+        return None
+    return termios.tcgetattr(fd)
+
+
+def _restore_termios(fd: int | None, saved: list[object] | None) -> None:
+    """Restore terminal attributes captured by ``_save_termios``, if any."""
+    if fd is None or termios is None or saved is None:
+        return
+    termios.tcsetattr(fd, termios.TCSADRAIN, saved)
 
 
 def _as_dict(snap: Snapshot) -> dict[str, object]:

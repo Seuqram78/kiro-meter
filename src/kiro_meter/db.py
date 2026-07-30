@@ -24,6 +24,10 @@ _CREDIT_UNIT = "credit"
 _DEFAULT_BURN_WINDOW_MIN = 15
 _DEFAULT_TOP_N = 5
 _SUBSECOND = re.compile(r"(\.\d{6})\d+")
+_MIN_NESTING = 1
+
+FULL_NESTING = 10_000
+"""Sentinel nesting level: any real path saturates to itself well below this."""
 
 
 def load_conversations(sessions_dir: Path) -> list[ConversationRow]:
@@ -109,6 +113,8 @@ def build_db_snapshot(
     Returns:
         The aggregated snapshot. ``approx`` is always True because credits are
         stored at turn-metadata level rather than as a per-turn ledger.
+        ``by_folder_model`` groups by the exact folder path; use
+        ``collapse_by_nesting`` to re-group it to a coarser depth.
     """
     today = now.astimezone(tz).date()
     since_ms = int(since.timestamp() * _MS_PER_SECOND) if since is not None else None
@@ -154,4 +160,57 @@ def _by_folder_model(
     return tuple(
         (folder, model, turns[folder, model], total)
         for (folder, model), total in ranked
+    )
+
+
+def collapse_by_nesting(
+    by_folder_model: tuple[tuple[str, str, int, float], ...],
+    nesting: int,
+) -> tuple[tuple[str, str, int, float], ...]:
+    """Re-group an already-aggregated folder/model breakdown to a coarser depth.
+
+    Collapses each folder to its trailing ``nesting`` path segments (e.g.
+    ``/home/me/proj-a/sub`` at nesting 1/2/3 becomes ``sub``, ``proj-a/sub``,
+    ``me/proj-a/sub`` - a depth at or beyond the path's real segment count
+    returns it unchanged). Distinct folders that collapse to the same key
+    have their turns/credits summed; distinct models at the same collapsed
+    folder remain separate rows.
+    """
+    turns: dict[tuple[str, str], int] = {}
+    totals: dict[tuple[str, str], float] = {}
+    for folder, model, turn_count, credit_total in by_folder_model:
+        key = (_collapse_folder(folder, nesting), model)
+        turns[key] = turns.get(key, 0) + turn_count
+        totals[key] = totals.get(key, 0.0) + credit_total
+    ranked = sorted(totals.items(), key=lambda item: item[1], reverse=True)
+    return tuple(
+        (folder, model, turns[folder, model], total)
+        for (folder, model), total in ranked
+    )
+
+
+def _collapse_folder(folder: str, nesting: int) -> str:
+    """Collapse a folder path to its trailing ``nesting`` segments.
+
+    E.g. ``/home/me/proj-a/sub`` at nesting 1/2/3 becomes ``sub``,
+    ``proj-a/sub``, ``me/proj-a/sub``. A depth at or beyond the path's real
+    segment count returns the path unchanged.
+    """
+    segments = [s for s in folder.split("/") if s]
+    depth = max(_MIN_NESTING, nesting)  # nesting=0 would otherwise mean "all"
+    if not segments or depth >= len(segments):
+        return folder
+    return "/".join(segments[-depth:])
+
+
+def max_folder_depth(rows: list[ConversationRow]) -> int:
+    """Return the deepest folder path (in '/'-separated segments) among rows.
+
+    Returns 1 if there are no rows, so callers can always clamp a nesting
+    level to at least this value without a special-case for "empty".
+    """
+    if not rows:
+        return _MIN_NESTING
+    return max(
+        (len([s for s in r.folder.split("/") if s]) or _MIN_NESTING) for r in rows
     )
