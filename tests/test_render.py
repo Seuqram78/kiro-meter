@@ -82,7 +82,7 @@ def test_footer_shows_live_status_and_next_reading() -> None:
     footer = _footer_of(snap, 0.0)
     assert "live" in footer
     assert "next reading" in footer
-    assert "Ctrl-C" in footer
+    assert "updated" in footer
 
 
 def test_no_footer_without_countdown() -> None:

@@ -27,13 +27,14 @@ if TYPE_CHECKING:
 _BAR_WIDTH = 16
 _PERCENT = 100.0
 _COUNTDOWN_WIDTH = 12
-_USAGE_BAR_WIDTH = 8
+_USAGE_BAR_WIDTH = 16
 _FOLDER_WIDTH = 22
 _EIGHTHS = 8
 _PARTIALS = "▏▎▍▌▋▊▉"
 _PCT_NEAR_LIMIT = 75.0
 _PCT_AT_LIMIT = 100.0
 _LOGIN_HINT = "Kiro session expired - run kiro-cli (or kiro-cli user login) to refresh."
+_KEY_BINDINGS = (("↑↓", "scroll"), ("←→", "nesting"), ("l", "local"), ("q", "quit"))
 # Table's own fixed rows (blank separator before it, title, header, blank
 # separator before the total row, and the total row) plus the Panel's
 # border and padding=(1, 2) top/bottom blank lines.
@@ -144,15 +145,26 @@ def _row_window(
 def _key_hints(
     ui: LiveState, row_window: tuple[int, int, int] | None
 ) -> RenderableType:
-    """Render the nesting level, scroll position, and key bindings."""
+    """Render the nesting level and scroll position, then the key bindings.
+
+    State facts (nesting, row window) and available actions are visually
+    separated, and each key is bracketed so it can't be misread as part of
+    its own label (e.g. ``l`` next to ``local``).
+    """
     nesting_label = "full" if ui.nesting >= FULL_NESTING else str(ui.nesting)
-    parts = [f"nesting {nesting_label}"]
+    state_parts = [f"nesting {nesting_label}"]
     if row_window is not None:
         start, end, total = row_window
         if total:
-            parts.append(f"rows {start + 1}-{end} of {total}")
-    parts.append("↑↓ scroll  ←→ nesting  l local  q quit")
-    return Text("   ".join(parts), style="dim")
+            state_parts.append(f"rows {start + 1}-{end} of {total}")
+    text = Text(" · ".join(state_parts), style="dim")
+    text.append(" │ ", style="dim")
+    for i, (key, label) in enumerate(_KEY_BINDINGS):
+        if i:
+            text.append(" ")
+        text.append(f"[{key}]", style="bold cyan")
+        text.append(f" {label}", style="dim")
+    return text
 
 
 def _stack(groups: list[list[RenderableType]]) -> RenderableType:
@@ -170,24 +182,25 @@ def _stack(groups: list[list[RenderableType]]) -> RenderableType:
 def _footer(snap: Snapshot, countdown: float) -> RenderableType:
     """Render the live status line: a green dot, next-reading meter, and time."""
     updated = snap.generated_at.astimezone().strftime("%H:%M:%S")
-    meter = _sweep_bar(countdown, _COUNTDOWN_WIDTH)
+    filled, empty = _sweep_bar(countdown, _COUNTDOWN_WIDTH)
     return Text.assemble(
         ("● ", "bold green"),
         ("live", "green"),
-        ("   next reading ", "dim"),
-        (f"▕{meter}▏", "cyan"),
-        (f"   updated {updated}   Ctrl-C to quit", "dim"),
+        ("   next reading ▕", "dim"),
+        (filled, "cyan"),
+        (empty, "dim"),
+        (f"▏   updated {updated}", "dim"),
     )
 
 
-def _sweep_bar(fraction: float, width: int) -> str:
-    """Render a smooth partial-cell bar filling ``fraction`` of ``width``."""
+def _sweep_bar(fraction: float, width: int) -> tuple[str, str]:
+    """Return the (filled, empty) segments of a smooth partial-cell bar."""
     eighths = round(max(0.0, min(fraction, 1.0)) * width * _EIGHTHS)
     full, remainder = divmod(eighths, _EIGHTHS)
     cells = "█" * full
     if remainder:
         cells += _PARTIALS[remainder - 1]
-    return cells.ljust(width, "░")
+    return cells, "░" * (width - len(cells))
 
 
 def _title(snap: Snapshot, cfg: AppConfig) -> str:
@@ -210,11 +223,12 @@ def _plan_gauge(account: AccountInfo) -> RenderableType:
     """Render the used/limit bar with the reset date, coloured by usage state."""
     pct = account.used / account.limit * _PERCENT if account.limit else 0.0
     style = _usage_style(pct)
-    bar = _bar(pct / _PERCENT)
+    filled, empty = _bar(pct / _PERCENT)
     reset = account.next_reset.strftime("%b %d")
     return Text.assemble(
         ("Plan  ", "bold"),
-        (bar, style),
+        (filled, style),
+        (empty, "dim"),
         (f"  {account.used:.2f} / {account.limit:.2f} cr  ", ""),
         (f"{pct:.0f}%\n", f"bold {style}"),
         (f"      resets {reset} (official)", "dim"),
@@ -233,10 +247,14 @@ def _usage_style(pct: float) -> str:
 def _today_line(db: DbSnapshot, pace: PaceInfo | None) -> RenderableType:
     """Render today's spend, with a pace bar when a target exists."""
     if pace is not None and pace.today_fraction is not None:
-        bar = _bar(pace.today_fraction)
+        filled, empty = _bar(pace.today_fraction)
         pct = pace.today_fraction * _PERCENT
-        line = f"Today {bar}  {db.today_credits:.2f} cr  ({pct:.0f}% allowance, local)"
-        return Text(line)
+        return Text.assemble(
+            "Today ",
+            (filled, "cyan"),
+            (empty, "dim"),
+            (f"  {db.today_credits:.2f} cr  ({pct:.0f}% allowance, local)", ""),
+        )
     return Text(f"Today  {db.today_credits:.2f} cr  ({db.today_turns} turns, local)")
 
 
@@ -288,7 +306,11 @@ def _usage_table(
     )
     table.add_column("folder", overflow="fold", max_width=_FOLDER_WIDTH)
     table.add_column("model", no_wrap=True, style="dim")
-    table.add_column("", no_wrap=True)
+    table.add_column("share", no_wrap=True, style="dim")
+    # Spacer: the only column with a ratio, so it alone absorbs whatever
+    # width `expand` adds - folder/model/bar stay tight on the left and
+    # cr/turns stay tight against the right edge, at any terminal width.
+    table.add_column("", ratio=1)
     table.add_column("cr", justify="right")
     table.add_column("turns", justify="right", style="dim")
     for folder, model, turns, amount in all_rows[start:end]:
@@ -297,14 +319,15 @@ def _usage_table(
             _short_folder(folder),
             model,
             Text(_proportion_bar(proportion), style="cyan"),
+            "",
             f"{amount:.2f}",
             str(turns),
         )
     total_credits = sum(amount for *_, amount in all_rows)
     total_turns = sum(turns for _, _, turns, _ in all_rows)
-    table.add_row("", "", "", "", "")
+    table.add_row("", "", "", "", "", "")
     table.add_row(
-        "Total", "", "", f"{total_credits:.2f}", str(total_turns), style="bold"
+        "Total", "", "", "", f"{total_credits:.2f}", str(total_turns), style="bold"
     )
     return table
 
@@ -323,8 +346,8 @@ def _proportion_bar(fraction: float) -> str:
     return "▇" * filled + " " * (_USAGE_BAR_WIDTH - filled)
 
 
-def _bar(fraction: float) -> str:
-    """Render a fixed-width text progress bar for ``fraction`` in [0, 1]."""
+def _bar(fraction: float) -> tuple[str, str]:
+    """Return the (filled, empty) segments of a fixed-width bar for ``fraction``."""
     clamped = max(0.0, min(fraction, 1.0))
     filled = round(clamped * _BAR_WIDTH)
-    return "▓" * filled + "░" * (_BAR_WIDTH - filled)
+    return "▓" * filled, "░" * (_BAR_WIDTH - filled)
