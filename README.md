@@ -1,22 +1,23 @@
 # kiro-meter
 
-A personal, unofficial live terminal monitor for [Kiro CLI](https://kiro.dev)
-credit usage. It reads Kiro's local data for live spend and shows how your
-consumption tracks against your billing cycle — with a plan gauge, pacing, and a
-per-folder/model breakdown.
+A personal, unofficial TUI (terminal UI) for visualizing [Kiro CLI](https://kiro.dev)
+credit usage, meant to be run and read directly in a terminal. It reads Kiro's
+local data for live spend and shows how your consumption tracks against your
+billing cycle — with a plan gauge, pacing, and a per-folder/model breakdown.
 
 ## What this is
 
 I built this **for my own needs** and I'm sharing it as-is. It is **not
 affiliated with Kiro or AWS**. If you want it to behave differently, please
-**fork it or open a PR** — maintenance is best-effort and feature requests may
-not be picked up.
+**open a PR** — maintenance is best-effort and feature requests may not be
+picked up. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Scope
 
-Works against the **Kiro CLI** only. It reads the Kiro CLI's local data on your
-machine. It does **not** support the Kiro **IDE** (different data location and
-mechanism). CLI today; IDE is not covered.
+Works against **Kiro** (AWS's tool) only — both CLI and IDE are in scope, though
+only the CLI is supported today (the IDE uses a different data location and
+mechanism). Other AI tools/vendors are out of scope; see
+[CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## What it shows
 
