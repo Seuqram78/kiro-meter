@@ -71,7 +71,7 @@ def load_token(db_path: Path) -> KiroToken | None:
     Returns:
         The parsed token, or ``None`` if no usable token is stored.
     """
-    uri = f"file:{db_path}?mode=ro"
+    uri = f"{db_path.resolve().as_uri()}?mode=ro"
     conn = sqlite3.connect(uri, uri=True)
     try:
         data = _first_token(conn)
