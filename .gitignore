@@ -18,6 +18,7 @@ htmlcov/
 
 # Build artifacts
 /dist/
+/src/kiro_meter/_version.py
 
 # Local config / caches produced by the tool at runtime
 /.kiro-usage/

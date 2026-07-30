@@ -1,6 +1,6 @@
 [project]
 name = "kiro-meter"
-version = "26.7.0"
+dynamic = ["version"]
 description = "Personal, unofficial live TUI monitor for Kiro CLI credit usage"
 readme = "README.md"
 requires-python = ">=3.14"
@@ -26,11 +26,17 @@ Issues = "https://github.com/Seuqram78/kiro-meter/issues"
 kiro-meter = "kiro_meter.cli:main"
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/kiro_meter"]
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "src/kiro_meter/_version.py"
 
 [dependency-groups]
 dev = ["pytest>=8", "ruff>=0.6", "complexipy>=1"]
