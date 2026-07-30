@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import json
+import os
 import re
+import sys
 from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -13,9 +15,17 @@ from kiro_meter.models import ConversationRow, DbSnapshot
 if TYPE_CHECKING:
     from datetime import date, tzinfo
 
+
+def _default_db_path() -> Path:
+    """Return the OS-specific location of kiro-cli's auth database."""
+    if sys.platform == "win32":
+        return Path(os.environ["LOCALAPPDATA"]) / "kiro-cli/data.sqlite3"
+    return Path.home() / ".local/share/kiro-cli/data.sqlite3"
+
+
 # Still holds the kiro-cli auth token (``auth_kv``); conversation history has
 # moved to per-session files under DEFAULT_SESSIONS_DIR (see load_conversations).
-DEFAULT_DB_PATH: Path = Path.home() / ".local/share/kiro-cli/data.sqlite3"
+DEFAULT_DB_PATH: Path = _default_db_path()
 DEFAULT_SESSIONS_DIR: Path = Path.home() / ".kiro/sessions/cli"
 
 _MS_PER_SECOND = 1000
