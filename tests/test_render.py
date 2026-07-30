@@ -105,9 +105,7 @@ _SMALL_HEIGHT = 24
 
 def _db_many(count: int) -> DbSnapshot:
     """A DbSnapshot with `count` distinct, descending-credit folder rows."""
-    rows = tuple(
-        (f"/proj-{i}", "haiku-4.5", 1, float(count - i)) for i in range(count)
-    )
+    rows = tuple((f"/proj-{i}", "haiku-4.5", 1, float(count - i)) for i in range(count))
     return DbSnapshot(
         today_credits=0.31,
         today_turns=18,

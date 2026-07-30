@@ -33,9 +33,7 @@ _EIGHTHS = 8
 _PARTIALS = "▏▎▍▌▋▊▉"
 _PCT_NEAR_LIMIT = 75.0
 _PCT_AT_LIMIT = 100.0
-_LOGIN_HINT = (
-    "Kiro session expired - run kiro-cli (or kiro-cli user login) to refresh."
-)
+_LOGIN_HINT = "Kiro session expired - run kiro-cli (or kiro-cli user login) to refresh."
 # Table's own fixed rows (blank separator before it, title, header, blank
 # separator before the total row, and the total row) plus the Panel's
 # border and padding=(1, 2) top/bottom blank lines.
@@ -123,10 +121,7 @@ def _visible_rows(
     chrome = _stack([official, budget, footer])
     chrome_height = len(console.render_lines(chrome, console.options, pad=False))
     overhead = (
-        chrome_height
-        + _TABLE_CHROME_LINES
-        + _PANEL_CHROME_LINES
-        + _KEY_HINTS_LINES
+        chrome_height + _TABLE_CHROME_LINES + _PANEL_CHROME_LINES + _KEY_HINTS_LINES
     )
     return max(1, console.size.height - overhead)
 

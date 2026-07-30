@@ -73,8 +73,10 @@ def pace_info() -> PaceInfo:
 
 def _iso(updated_at_ms: int) -> str:
     """Render epoch milliseconds as an ISO-8601 UTC timestamp ending in ``Z``."""
-    return datetime.fromtimestamp(updated_at_ms / 1000, tz=UTC).isoformat().replace(
-        "+00:00", "Z"
+    return (
+        datetime.fromtimestamp(updated_at_ms / 1000, tz=UTC)
+        .isoformat()
+        .replace("+00:00", "Z")
     )
 
 

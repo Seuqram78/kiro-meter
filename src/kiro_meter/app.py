@@ -221,9 +221,7 @@ def _local_snapshot(
     """
     since = billing_cycle_start(account.next_reset) if account is not None else None
     db = build_db_snapshot(rows, now=now, tz=tz, since=since)
-    return replace(
-        db, by_folder_model=collapse_by_nesting(db.by_folder_model, nesting)
-    )
+    return replace(db, by_folder_model=collapse_by_nesting(db.by_folder_model, nesting))
 
 
 def _read_keys(key_queue: queue.Queue[str], stop_event: threading.Event) -> None:

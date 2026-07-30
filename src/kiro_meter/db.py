@@ -59,7 +59,7 @@ def load_conversations(sessions_dir: Path) -> list[ConversationRow]:
         try:
             data = json.loads(path.read_text())
             row = _parse_session(data)
-        except (OSError, json.JSONDecodeError, AttributeError, TypeError):
+        except OSError, json.JSONDecodeError, AttributeError, TypeError:
             continue
         if row is not None:
             rows.append(row)

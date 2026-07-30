@@ -27,10 +27,11 @@ Requires Python 3.14 (uv provisions it automatically).
 ```sh
 uv run pytest
 uv run ruff check .
+uv run ruff format --check .
 uv run complexipy .
 ```
 
-All three must pass. Follow the existing `ruff` config in `pyproject.toml`
+All four must pass. Follow the existing `ruff` config in `pyproject.toml`
 (`select = ["ALL"]`, with documented exceptions) rather than introducing new
 lint suppressions unless there's a good reason.
 

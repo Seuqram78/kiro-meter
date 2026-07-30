@@ -82,9 +82,7 @@ def test_by_folder_model_includes_more_than_five_groups(
     make_sessions: Callable[[list[ConversationSpec]], Path],
 ) -> None:
     """Every folder/model group is kept, not just the top 5."""
-    specs = [
-        (f"c{i}", f"/proj-{i}", "haiku", 0.01 * i, _ms(_NOW)) for i in range(1, 8)
-    ]
+    specs = [(f"c{i}", f"/proj-{i}", "haiku", 0.01 * i, _ms(_NOW)) for i in range(1, 8)]
     sessions_dir = make_sessions(specs)
     snap = build_db_snapshot(load_conversations(sessions_dir), now=_NOW, tz=UTC)
     assert len(snap.by_folder_model) == len(specs)
