@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 from rich.console import Group
@@ -310,7 +309,7 @@ def _usage_table(
     for folder, model, turns, amount in all_rows[start:end]:
         proportion = amount / peak if peak else 0.0
         table.add_row(
-            _short_folder(folder),
+            folder,
             model,
             Text(_proportion_bar(proportion), style="cyan"),
             "",
@@ -324,14 +323,6 @@ def _usage_table(
         "Total", "", "", "", f"{total_credits:.2f}", str(total_turns), style="bold"
     )
     return table
-
-
-def _short_folder(folder: str) -> str:
-    """Abbreviate the home directory to ``~`` for a compact folder label."""
-    home = str(Path.home())
-    if folder == home or folder.startswith(home + "/"):
-        return "~" + folder[len(home) :]
-    return folder
 
 
 def _proportion_bar(fraction: float) -> str:

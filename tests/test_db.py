@@ -151,7 +151,7 @@ def test_burn_rate_only_counts_recent(
 def test_nesting_collapses_from_the_root(
     make_sessions: Callable[[list[ConversationSpec]], Path],
 ) -> None:
-    """Nesting 1/2/3 collapse /home/me/proj-a/sub to home/home-me/home-me-proj-a."""
+    """Nesting 1/2/3 root-anchor to /home, /home/me, /home/me/proj-a."""
     sessions_dir = make_sessions(
         [("c1", "/home/me/proj-a/sub", "haiku", 0.02, _ms(_NOW))]
     )
@@ -162,9 +162,9 @@ def test_nesting_collapses_from_the_root(
     def folder_at(nesting: int) -> str:
         return collapse_by_nesting(by_folder_model, nesting)[0][0]
 
-    assert folder_at(1) == "home"
-    assert folder_at(2) == "home/me"
-    assert folder_at(3) == "home/me/proj-a"
+    assert folder_at(1) == "/home"
+    assert folder_at(2) == "/home/me"
+    assert folder_at(3) == "/home/me/proj-a"
 
 
 def test_nesting_beyond_path_length_keeps_full_path(
@@ -224,8 +224,8 @@ def test_nesting_sums_credits_across_collapsing_folders(
     by_key = {
         (folder, model): (turns, total) for folder, model, turns, total in collapsed
     }
-    assert by_key[("home/team", "haiku")] == (2, 0.10 + 0.20)  # alice + bob summed
-    assert by_key[("home/team", "sonnet")] == (1, 0.30)  # distinct model stays separate
+    assert by_key[("/home/team", "haiku")] == (2, 0.10 + 0.20)  # alice + bob summed
+    assert by_key[("/home/team", "sonnet")] == (1, 0.30)  # model stays separate
 
 
 def test_max_folder_depth_empty_is_one() -> None:

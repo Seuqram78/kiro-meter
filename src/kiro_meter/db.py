@@ -178,14 +178,14 @@ def collapse_by_nesting(
     """Re-group an already-aggregated folder/model breakdown to a coarser depth.
 
     Collapses each folder to its leading ``nesting`` path segments, root
-    anchored (e.g. ``/home/me/proj-a/sub`` at nesting 1/2/3 becomes ``home``,
-    ``home/me``, ``home/me/proj-a`` - a depth at or beyond the path's real
-    segment count returns it unchanged). This walks the same tree everyone's
-    paths share from its root, so folders under a common ancestor collapse
-    into that ancestor rather than merging on a coincidentally-matching leaf
-    name. Distinct folders that collapse to the same key have their
-    turns/credits summed; distinct models at the same collapsed folder
-    remain separate rows.
+    anchored (e.g. ``/home/me/proj-a/sub`` at nesting 1/2/3 becomes
+    ``/home``, ``/home/me``, ``/home/me/proj-a`` - a depth at or beyond the
+    path's real segment count returns it unchanged). This walks the same
+    tree everyone's paths share from its root, so folders under a common
+    ancestor collapse into that ancestor rather than merging on a
+    coincidentally-matching leaf name. Distinct folders that collapse to the
+    same key have their turns/credits summed; distinct models at the same
+    collapsed folder remain separate rows.
     """
     turns: dict[tuple[str, str], int] = {}
     totals: dict[tuple[str, str], float] = {}
@@ -200,28 +200,44 @@ def collapse_by_nesting(
     )
 
 
+def _path_names(folder: str) -> tuple[str, ...]:
+    """The real path segments of ``folder``, excluding any root/drive anchor.
+
+    Uses ``pathlib.Path`` rather than a hardcoded ``/`` split so this parses
+    Windows paths (drive-letter anchor, backslash separators) the same way
+    it parses POSIX ones - conversation folders are read from the local
+    machine, so they're always in that machine's own path convention.
+    """
+    path = Path(folder)
+    return path.parts[1:] if path.anchor else path.parts
+
+
 def _collapse_folder(folder: str, nesting: int) -> str:
     """Collapse a folder path to its leading ``nesting`` segments, root anchored.
 
-    E.g. ``/home/me/proj-a/sub`` at nesting 1/2/3 becomes ``home``,
-    ``home/me``, ``home/me/proj-a``. A depth at or beyond the path's real
-    segment count returns the path unchanged.
+    E.g. ``/home/me/proj-a/sub`` at nesting 1/2/3 becomes ``/home``,
+    ``/home/me``, ``/home/me/proj-a`` (and likewise for a Windows path's
+    drive letter). The root/drive anchor doesn't count against the nesting
+    depth itself - it's kept on every level so a collapsed folder is still a
+    real, absolute path prefix. A depth at or beyond the path's real segment
+    count returns the path unchanged.
     """
-    segments = [s for s in folder.split("/") if s]
+    path = Path(folder)
+    parts = path.parts
+    offset = len(parts) - len(_path_names(folder))
     depth = max(_MIN_NESTING, nesting)  # nesting=0 would otherwise mean "all"
-    if not segments or depth >= len(segments):
+    names = parts[offset:]
+    if not names or depth >= len(names):
         return folder
-    return "/".join(segments[:depth])
+    return str(Path(*parts[: offset + depth]))
 
 
 def max_folder_depth(rows: list[ConversationRow]) -> int:
-    """Return the deepest folder path (in '/'-separated segments) among rows.
+    """Return the deepest folder path (in real segments, anchor excluded) among rows.
 
     Returns 1 if there are no rows, so callers can always clamp a nesting
     level to at least this value without a special-case for "empty".
     """
     if not rows:
         return _MIN_NESTING
-    return max(
-        (len([s for s in r.folder.split("/") if s]) or _MIN_NESTING) for r in rows
-    )
+    return max((len(_path_names(r.folder)) or _MIN_NESTING) for r in rows)
