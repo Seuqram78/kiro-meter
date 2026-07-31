@@ -247,6 +247,43 @@ def test_sort_folder_desc_reverses_row_order() -> None:
     assert "proj-b" in lines[0]
 
 
+def _db_mixed_depth() -> DbSnapshot:
+    """Rows at different path depths, where alphabetical order disagrees with depth."""
+    return DbSnapshot(
+        today_credits=0.31,
+        today_turns=18,
+        session_credits=0.12,
+        session_turns=6,
+        burn_rate_per_min=0.02,
+        by_folder_model=(
+            ("/home/a/b/c", "sonnet-4.5", 4, 0.05),  # depth 4, alphabetically first
+            ("/home/z", "haiku-4.5", 2, 0.02),  # depth 2, alphabetically last
+        ),
+        recent=(),
+        approx=True,
+    )
+
+
+def test_sort_folder_asc_groups_by_nesting_depth_before_alphabetical() -> None:
+    """A shallower folder sorts first even when it's alphabetically later."""
+    snap = Snapshot(_db_mixed_depth(), _account(), "ok", _pace(), _NOW)
+    text, _ = _render_windowed(snap, ui=LiveState(sort="folder_asc"))
+    lines = [
+        line for line in text.splitlines() if "/home/a/b/c" in line or "/home/z" in line
+    ]
+    assert "/home/z" in lines[0]  # depth 2 sorts before depth 4, despite "z" > "a"
+
+
+def test_sort_folder_desc_groups_by_nesting_depth_before_alphabetical() -> None:
+    """The deepest folder sorts first in descending order, regardless of spelling."""
+    snap = Snapshot(_db_mixed_depth(), _account(), "ok", _pace(), _NOW)
+    text, _ = _render_windowed(snap, ui=LiveState(sort="folder_desc"))
+    lines = [
+        line for line in text.splitlines() if "/home/a/b/c" in line or "/home/z" in line
+    ]
+    assert "/home/a/b/c" in lines[0]  # depth 4 sorts before depth 2
+
+
 def test_sort_cr_asc_reverses_credit_order() -> None:
     """cr_asc puts the lowest-credit row first."""
     snap = Snapshot(_db(), _account(), "ok", _pace(), _NOW)

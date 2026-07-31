@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from rich.console import Group
@@ -337,6 +338,20 @@ def _column_header(base: str, sort: TableSort, asc: TableSort, desc: TableSort) 
     return base
 
 
+def _folder_depth(folder: str) -> int:
+    """Number of real path segments in ``folder``, excluding any root/drive anchor.
+
+    Rows at the current nesting level aren't all the same depth - a folder
+    shallower than the active nesting level passes through
+    ``collapse_by_nesting`` unchanged - so a plain string sort would
+    interleave shallow and deep paths by whatever they happen to spell.
+    Sorting on depth first groups same-level folders together, matching
+    what the nesting column actually shows.
+    """
+    path = Path(folder)
+    return len(path.parts) - (1 if path.anchor else 0)
+
+
 def _sorted_rows(
     rows: tuple[tuple[str, str, int, float], ...], sort: TableSort
 ) -> tuple[tuple[str, str, int, float], ...]:
@@ -346,8 +361,10 @@ def _sorted_rows(
     if sort == "cr_asc":
         return tuple(sorted(rows, key=lambda r: r[3]))
     if sort == "folder_asc":
-        return tuple(sorted(rows, key=lambda r: (r[0], r[1])))
-    return tuple(sorted(rows, key=lambda r: (r[0], r[1]), reverse=True))
+        return tuple(sorted(rows, key=lambda r: (_folder_depth(r[0]), r[0], r[1])))
+    return tuple(
+        sorted(rows, key=lambda r: (_folder_depth(r[0]), r[0], r[1]), reverse=True)
+    )
 
 
 def _usage_table(
