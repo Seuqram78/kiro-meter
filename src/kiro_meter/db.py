@@ -177,12 +177,15 @@ def collapse_by_nesting(
 ) -> tuple[tuple[str, str, int, float], ...]:
     """Re-group an already-aggregated folder/model breakdown to a coarser depth.
 
-    Collapses each folder to its trailing ``nesting`` path segments (e.g.
-    ``/home/me/proj-a/sub`` at nesting 1/2/3 becomes ``sub``, ``proj-a/sub``,
-    ``me/proj-a/sub`` - a depth at or beyond the path's real segment count
-    returns it unchanged). Distinct folders that collapse to the same key
-    have their turns/credits summed; distinct models at the same collapsed
-    folder remain separate rows.
+    Collapses each folder to its leading ``nesting`` path segments, root
+    anchored (e.g. ``/home/me/proj-a/sub`` at nesting 1/2/3 becomes ``home``,
+    ``home/me``, ``home/me/proj-a`` - a depth at or beyond the path's real
+    segment count returns it unchanged). This walks the same tree everyone's
+    paths share from its root, so folders under a common ancestor collapse
+    into that ancestor rather than merging on a coincidentally-matching leaf
+    name. Distinct folders that collapse to the same key have their
+    turns/credits summed; distinct models at the same collapsed folder
+    remain separate rows.
     """
     turns: dict[tuple[str, str], int] = {}
     totals: dict[tuple[str, str], float] = {}
@@ -198,17 +201,17 @@ def collapse_by_nesting(
 
 
 def _collapse_folder(folder: str, nesting: int) -> str:
-    """Collapse a folder path to its trailing ``nesting`` segments.
+    """Collapse a folder path to its leading ``nesting`` segments, root anchored.
 
-    E.g. ``/home/me/proj-a/sub`` at nesting 1/2/3 becomes ``sub``,
-    ``proj-a/sub``, ``me/proj-a/sub``. A depth at or beyond the path's real
+    E.g. ``/home/me/proj-a/sub`` at nesting 1/2/3 becomes ``home``,
+    ``home/me``, ``home/me/proj-a``. A depth at or beyond the path's real
     segment count returns the path unchanged.
     """
     segments = [s for s in folder.split("/") if s]
     depth = max(_MIN_NESTING, nesting)  # nesting=0 would otherwise mean "all"
     if not segments or depth >= len(segments):
         return folder
-    return "/".join(segments[-depth:])
+    return "/".join(segments[:depth])
 
 
 def max_folder_depth(rows: list[ConversationRow]) -> int:

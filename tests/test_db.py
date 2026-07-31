@@ -148,10 +148,10 @@ def test_burn_rate_only_counts_recent(
     assert snap.burn_rate_per_min == _EXPECTED_BURN
 
 
-def test_nesting_collapses_from_the_leaf(
+def test_nesting_collapses_from_the_root(
     make_sessions: Callable[[list[ConversationSpec]], Path],
 ) -> None:
-    """Nesting 1/2/3 collapse /home/me/proj-a/sub to sub/proj-a-sub/me-proj-a-sub."""
+    """Nesting 1/2/3 collapse /home/me/proj-a/sub to home/home-me/home-me-proj-a."""
     sessions_dir = make_sessions(
         [("c1", "/home/me/proj-a/sub", "haiku", 0.02, _ms(_NOW))]
     )
@@ -162,9 +162,9 @@ def test_nesting_collapses_from_the_leaf(
     def folder_at(nesting: int) -> str:
         return collapse_by_nesting(by_folder_model, nesting)[0][0]
 
-    assert folder_at(1) == "sub"
-    assert folder_at(2) == "proj-a/sub"
-    assert folder_at(3) == "me/proj-a/sub"
+    assert folder_at(1) == "home"
+    assert folder_at(2) == "home/me"
+    assert folder_at(3) == "home/me/proj-a"
 
 
 def test_nesting_beyond_path_length_keeps_full_path(
@@ -208,24 +208,24 @@ def test_nesting_leaves_bare_session_id_folder_unchanged(tmp_path: Path) -> None
 def test_nesting_sums_credits_across_collapsing_folders(
     make_sessions: Callable[[list[ConversationSpec]], Path],
 ) -> None:
-    """Distinct folders collapsing to the same key sum credits/turns."""
+    """Folders sharing a root-anchored prefix collapse, summing credits/turns."""
     sessions_dir = make_sessions(
         [
-            ("c1", "/home/alice/proj", "haiku", 0.10, _ms(_NOW)),
-            ("c2", "/home/bob/proj", "haiku", 0.20, _ms(_NOW)),
-            ("c3", "/home/bob/proj", "sonnet", 0.30, _ms(_NOW)),
+            ("c1", "/home/team/alice/proj", "haiku", 0.10, _ms(_NOW)),
+            ("c2", "/home/team/bob/proj", "haiku", 0.20, _ms(_NOW)),
+            ("c3", "/home/team/bob/proj", "sonnet", 0.30, _ms(_NOW)),
         ],
     )
     by_folder_model = build_db_snapshot(
         load_conversations(sessions_dir), now=_NOW, tz=UTC
     ).by_folder_model
-    collapsed = collapse_by_nesting(by_folder_model, 1)
+    collapsed = collapse_by_nesting(by_folder_model, 2)
 
     by_key = {
         (folder, model): (turns, total) for folder, model, turns, total in collapsed
     }
-    assert by_key[("proj", "haiku")] == (2, 0.10 + 0.20)  # alice + bob summed
-    assert by_key[("proj", "sonnet")] == (1, 0.30)  # distinct model stays separate
+    assert by_key[("home/team", "haiku")] == (2, 0.10 + 0.20)  # alice + bob summed
+    assert by_key[("home/team", "sonnet")] == (1, 0.30)  # distinct model stays separate
 
 
 def test_max_folder_depth_empty_is_one() -> None:
