@@ -67,9 +67,9 @@ def test_needs_login_banner_shown_and_local_still_rendered() -> None:
     assert "0.31" in text
 
 
-def _footer_of(snap: Snapshot, countdown: float) -> str:
+def _footer_of(snap: Snapshot, frame: int) -> str:
     console = Console(width=_CONSOLE_WIDTH, record=True)
-    console.print(render_snapshot(snap, AppConfig(), countdown=countdown))
+    console.print(render_snapshot(snap, AppConfig(), frame=frame))
     lines = [
         line for line in console.export_text().splitlines() if "next reading" in line
     ]
@@ -77,26 +77,31 @@ def _footer_of(snap: Snapshot, countdown: float) -> str:
 
 
 def test_footer_shows_live_status_and_next_reading() -> None:
-    """A countdown renders the live status line with the next-reading meter."""
+    """A frame count renders the live status line with the sweeping marker."""
     snap = Snapshot(_db(), _account(), "ok", _pace(), _NOW)
-    footer = _footer_of(snap, 0.0)
+    footer = _footer_of(snap, 0)
     assert "live" in footer
     assert "next reading" in footer
     assert "updated" in footer
 
 
-def test_no_footer_without_countdown() -> None:
-    """One-shot rendering (no countdown) has no live footer."""
+def test_no_footer_without_frame() -> None:
+    """One-shot rendering (no frame) has no live footer."""
     snap = Snapshot(_db(), _account(), "ok", _pace(), _NOW)
     assert "next reading" not in _render(snap)
 
 
-def test_countdown_bar_fills_over_time() -> None:
-    """A larger countdown fraction fills more of the next-reading bar."""
+def _marker_column(footer: str) -> int:
+    """Index of the sweeping marker, ignoring the leading "● live" dot."""
+    return footer.index("●", footer.index("next"))
+
+
+def test_scanner_marker_advances_one_column_per_frame() -> None:
+    """Each successive frame moves the marker exactly one column."""
     snap = Snapshot(_db(), _account(), "ok", _pace(), _NOW)
-    early = _footer_of(snap, 0.1).count("█")
-    late = _footer_of(snap, 0.9).count("█")
-    assert late > early
+    early = _marker_column(_footer_of(snap, 1))
+    late = _marker_column(_footer_of(snap, 2))
+    assert late == early + 1
 
 
 _MANY_ROWS = 20
@@ -122,9 +127,7 @@ def _render_windowed(
     snap: Snapshot, *, height: int, ui: LiveState
 ) -> tuple[str, Console]:
     console = Console(width=_CONSOLE_WIDTH, height=height, record=True)
-    console.print(
-        render_snapshot(snap, AppConfig(), countdown=0.0, ui=ui, console=console)
-    )
+    console.print(render_snapshot(snap, AppConfig(), frame=0, ui=ui, console=console))
     return console.export_text(), console
 
 

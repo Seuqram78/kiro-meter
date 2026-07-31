@@ -26,13 +26,17 @@ if TYPE_CHECKING:
 
 _BAR_WIDTH = 16
 _PERCENT = 100.0
-_COUNTDOWN_WIDTH = 12
+_SCANNER_WIDTH = 10
 _USAGE_BAR_WIDTH = 16
 _FOLDER_WIDTH = 22
-_EIGHTHS = 8
-_PARTIALS = "▏▎▍▌▋▊▉"
 _PCT_NEAR_LIMIT = 75.0
 _PCT_AT_LIMIT = 100.0
+# A truecolor hex, not a named/8-bit color: named ANSI colors (incl. "dim")
+# are palette indices, and terminal themes commonly remap the 256-color
+# greyscale ramp to a tinted shade - on the reporting terminal that turned
+# bar tracks into a near-black/olive checkerboard. A #rrggbb triplet is sent
+# as a direct 24-bit RGB escape, which themes can't remap.
+_TRACK_STYLE = "#6c6c6c"
 _LOGIN_HINT = "Kiro session expired - run kiro-cli (or kiro-cli user login) to refresh."
 _KEY_BINDINGS = (("↑↓", "scroll"), ("←→", "nesting"), ("l", "local"), ("q", "quit"))
 # Table's own fixed rows (blank separator before it, title, header, blank
@@ -47,7 +51,7 @@ def render_snapshot(
     snap: Snapshot,
     cfg: AppConfig,
     *,
-    countdown: float | None = None,
+    frame: int | None = None,
     ui: LiveState | None = None,
     console: Console | None = None,
 ) -> RenderableType:
@@ -56,9 +60,9 @@ def render_snapshot(
     Args:
         snap: The merged snapshot to display.
         cfg: Runtime configuration (title and refresh interval).
-        countdown: Fraction (0-1) of the way to the next reading. When set,
-            a live status line with the next-reading meter is drawn. ``None``
-            (one-shot) draws no footer.
+        frame: Redraw counter for the live view, advancing the sweeping
+            activity marker by one column each call. When set, a live status
+            line is drawn. ``None`` (one-shot) draws no footer.
         ui: Live keyboard-driven state (scroll, nesting, local visibility).
             ``None`` (one-shot) renders every local section and the full,
             untruncated usage table, matching pre-interactive behaviour.
@@ -81,8 +85,8 @@ def render_snapshot(
             budget.append(_burn_line(snap.db.burn_rate_per_min))
 
     footer: list[RenderableType] = []
-    if countdown is not None:
-        footer.append(_footer(snap, countdown))
+    if frame is not None:
+        footer.append(_footer(snap, frame))
 
     table_group: list[RenderableType] = []
     row_window: tuple[int, int, int] | None = None
@@ -179,28 +183,34 @@ def _stack(groups: list[list[RenderableType]]) -> RenderableType:
     return Group(*rendered)
 
 
-def _footer(snap: Snapshot, countdown: float) -> RenderableType:
-    """Render the live status line: a green dot, next-reading meter, and time."""
+def _footer(snap: Snapshot, frame: int) -> RenderableType:
+    """Render the live status line: a green dot, a sweeping marker, and time.
+
+    The marker advances exactly one column per redraw (``frame`` is a plain
+    counter, not a wall-clock reading), which is the smoothest motion
+    possible on a character grid - deriving the position from elapsed
+    seconds instead would need to round to a whole column on every tick,
+    and unless the speed happens to divide the tick rate evenly that
+    rounding shows up as an uneven hold-hold-jump cadence.
+    """
     updated = snap.generated_at.astimezone().strftime("%H:%M:%S")
-    filled, empty = _sweep_bar(countdown, _COUNTDOWN_WIDTH)
+    pos = _scanner_position(frame, _SCANNER_WIDTH)
     return Text.assemble(
         ("● ", "bold green"),
         ("live", "green"),
-        ("   next reading ▕", "dim"),
-        (filled, "cyan"),
-        (empty, "dim"),
-        (f"▏   updated {updated}", "dim"),
+        ("   next reading ", "dim"),
+        ("·" * pos, "dim"),
+        ("●", "bold cyan"),
+        ("·" * (_SCANNER_WIDTH - pos - 1), "dim"),
+        (f"   updated {updated}", "dim"),
     )
 
 
-def _sweep_bar(fraction: float, width: int) -> tuple[str, str]:
-    """Return the (filled, empty) segments of a smooth partial-cell bar."""
-    eighths = round(max(0.0, min(fraction, 1.0)) * width * _EIGHTHS)
-    full, remainder = divmod(eighths, _EIGHTHS)
-    cells = "█" * full
-    if remainder:
-        cells += _PARTIALS[remainder - 1]
-    return cells, "░" * (width - len(cells))
+def _scanner_position(frame: int, width: int) -> int:
+    """Bounce a single marker back and forth across ``[0, width - 1]``."""
+    period = 2 * (width - 1)
+    step = frame % period
+    return step if step < width else period - step
 
 
 def _title(snap: Snapshot, cfg: AppConfig) -> str:
@@ -228,7 +238,7 @@ def _plan_gauge(account: AccountInfo) -> RenderableType:
     return Text.assemble(
         ("Plan  ", "bold"),
         (filled, style),
-        (empty, "dim"),
+        (empty, _TRACK_STYLE),
         (f"  {account.used:.2f} / {account.limit:.2f} cr  ", ""),
         (f"{pct:.0f}%\n", f"bold {style}"),
         (f"      resets {reset} (official)", "dim"),
@@ -252,7 +262,7 @@ def _today_line(db: DbSnapshot, pace: PaceInfo | None) -> RenderableType:
         return Text.assemble(
             "Today ",
             (filled, "cyan"),
-            (empty, "dim"),
+            (empty, _TRACK_STYLE),
             (f"  {db.today_credits:.2f} cr  ({pct:.0f}% allowance, local)", ""),
         )
     return Text(f"Today  {db.today_credits:.2f} cr  ({db.today_turns} turns, local)")

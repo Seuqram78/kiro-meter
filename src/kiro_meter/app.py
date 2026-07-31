@@ -144,6 +144,7 @@ def run_live(
     rows: list[ConversationRow] = []
     last_fetch = 0.0
     last_poll = 0.0
+    frame = 0
     ui = LiveState()
     key_queue: queue.Queue[str] = queue.Queue()
     stop_reading = threading.Event()
@@ -179,13 +180,13 @@ def run_live(
                         else None
                     )
                     snap = Snapshot(db, account, status, pace, now)
-                    countdown = min((monotonic - last_poll) / cfg.refresh_seconds, 1.0)
                     live.update(
                         render_snapshot(
-                            snap, cfg, countdown=countdown, ui=ui, console=live.console
+                            snap, cfg, frame=frame, ui=ui, console=live.console
                         ),
                         refresh=True,
                     )
+                    frame += 1
                     time.sleep(_TICK_SECONDS)
             except KeyboardInterrupt:
                 pass
