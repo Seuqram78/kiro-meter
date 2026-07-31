@@ -13,7 +13,7 @@ from rich.text import Text
 from kiro_meter.db import FULL_NESTING
 
 if TYPE_CHECKING:
-    from rich.console import Console, RenderableType
+    from rich.console import RenderableType
 
     from kiro_meter.interaction import LiveState
     from kiro_meter.models import (
@@ -39,12 +39,12 @@ _PCT_AT_LIMIT = 100.0
 _TRACK_STYLE = "#6c6c6c"
 _LOGIN_HINT = "Kiro session expired - run kiro-cli (or kiro-cli user login) to refresh."
 _KEY_BINDINGS = (("↑↓", "scroll"), ("←→", "nesting"), ("l", "local"), ("q", "quit"))
-# Table's own fixed rows (blank separator before it, title, header, blank
-# separator before the total row, and the total row) plus the Panel's
-# border and padding=(1, 2) top/bottom blank lines.
-_TABLE_CHROME_LINES = 5
-_PANEL_CHROME_LINES = 4
-_KEY_HINTS_LINES = 1
+# Fixed rather than derived from the terminal's reported height: some
+# environments (corporate shells, VDI sessions) pin COLUMNS/LINES to a stale
+# value, which made a height-derived row count either over- or under-shoot
+# the real screen - most visibly with hundreds of folders, where an
+# over-generous count ran the table past the bottom of the terminal.
+_VISIBLE_ROWS = 10
 
 
 def render_snapshot(
@@ -53,7 +53,6 @@ def render_snapshot(
     *,
     frame: int | None = None,
     ui: LiveState | None = None,
-    console: Console | None = None,
 ) -> RenderableType:
     """Turn a Snapshot into a titled panel of usage sections.
 
@@ -66,9 +65,7 @@ def render_snapshot(
         ui: Live keyboard-driven state (scroll, nesting, local visibility).
             ``None`` (one-shot) renders every local section and the full,
             untruncated usage table, matching pre-interactive behaviour.
-        console: The console the view is drawn to, used to size the
-            scrollable table to the available height. Required together with
-            ``ui`` to enable row windowing; ignored otherwise.
+            Otherwise the usage table is windowed to a fixed row count.
 
     Returns:
         A rich renderable ready to hand to ``Console.print`` or ``Live``.
@@ -91,9 +88,10 @@ def render_snapshot(
     table_group: list[RenderableType] = []
     row_window: tuple[int, int, int] | None = None
     if show_local and snap.db.by_folder_model:
-        visible_rows = _visible_rows(official, budget, footer, ui=ui, console=console)
         scroll = ui.scroll if ui is not None else 0
-        row_window = _row_window(len(snap.db.by_folder_model), scroll, visible_rows)
+        row_window = _row_window(
+            len(snap.db.by_folder_model), scroll, _visible_rows(ui)
+        )
         table_group.append(
             _usage_table(
                 snap.db, scoped=snap.account is not None, row_window=row_window
@@ -112,23 +110,9 @@ def render_snapshot(
     )
 
 
-def _visible_rows(
-    official: list[RenderableType],
-    budget: list[RenderableType],
-    footer: list[RenderableType],
-    *,
-    ui: LiveState | None,
-    console: Console | None,
-) -> int | None:
-    """Return how many table rows fit, or None to render every row unwindowed."""
-    if ui is None or console is None:
-        return None
-    chrome = _stack([official, budget, footer])
-    chrome_height = len(console.render_lines(chrome, console.options, pad=False))
-    overhead = (
-        chrome_height + _TABLE_CHROME_LINES + _PANEL_CHROME_LINES + _KEY_HINTS_LINES
-    )
-    return max(1, console.size.height - overhead)
+def _visible_rows(ui: LiveState | None) -> int | None:
+    """Return the fixed live-view row count, or None to show every row (one-shot)."""
+    return _VISIBLE_ROWS if ui is not None else None
 
 
 def _row_window(

@@ -181,9 +181,7 @@ def run_live(
                     )
                     snap = Snapshot(db, account, status, pace, now)
                     live.update(
-                        render_snapshot(
-                            snap, cfg, frame=frame, ui=ui, console=live.console
-                        ),
+                        render_snapshot(snap, cfg, frame=frame, ui=ui),
                         refresh=True,
                     )
                     frame += 1
