@@ -9,9 +9,18 @@ import readchar
 from kiro_meter.db import FULL_NESTING
 
 _MIN_NESTING = 1
-_SCROLL_DELTA = {readchar.key.UP: -1, readchar.key.DOWN: 1}
+# Terminals in "application cursor keys" mode (DECCKM) - common behind SSH
+# clients like PuTTY - send arrows as SS3 sequences ("\x1bOA") instead of
+# readchar's default CSI form ("\x1b[A"); recognize both so arrow keys work
+# regardless of which mode the terminal happens to be in.
+_SCROLL_DELTA = {readchar.key.UP: -1, "\x1bOA": -1, readchar.key.DOWN: 1, "\x1bOB": 1}
 # left = collapse (less detail), right = expand (more detail)
-_NESTING_DELTA = {readchar.key.LEFT: -1, readchar.key.RIGHT: 1}
+_NESTING_DELTA = {
+    readchar.key.LEFT: -1,
+    "\x1bOD": -1,
+    readchar.key.RIGHT: 1,
+    "\x1bOC": 1,
+}
 
 
 @dataclass(frozen=True)

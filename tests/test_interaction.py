@@ -48,6 +48,18 @@ def test_right_increases_nesting() -> None:
     assert state.nesting == _STARTING_NESTING + 1
 
 
+def test_application_mode_arrows_also_scroll_and_nest() -> None:
+    """SS3-form arrows (DECCKM/application cursor keys mode) work too."""
+    up = apply_key(LiveState(scroll=_STARTING_SCROLL), "\x1bOA")
+    assert up.scroll == _STARTING_SCROLL - 1
+    down = apply_key(LiveState(scroll=0), "\x1bOB")
+    assert down.scroll == 1
+    left = apply_key(LiveState(nesting=_STARTING_NESTING), "\x1bOD")
+    assert left.nesting == _STARTING_NESTING - 1
+    right = apply_key(LiveState(nesting=_STARTING_NESTING), "\x1bOC")
+    assert right.nesting == _STARTING_NESTING + 1
+
+
 def test_l_toggles_show_local() -> None:
     """The 'l' key hides, then re-shows, local-derived sections."""
     hidden = apply_key(LiveState(show_local=True), "l")
