@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from rich.console import Group
@@ -14,7 +15,7 @@ from kiro_meter.db import FULL_NESTING
 if TYPE_CHECKING:
     from rich.console import RenderableType
 
-    from kiro_meter.interaction import LiveState
+    from kiro_meter.interaction import LiveState, TableSort
     from kiro_meter.models import (
         AccountInfo,
         AppConfig,
@@ -27,7 +28,6 @@ _BAR_WIDTH = 16
 _PERCENT = 100.0
 _SCANNER_WIDTH = 10
 _USAGE_BAR_WIDTH = 16
-_FOLDER_WIDTH = 22
 _PCT_NEAR_LIMIT = 75.0
 _PCT_AT_LIMIT = 100.0
 # A truecolor hex, not a named/8-bit color: named ANSI colors (incl. "dim")
@@ -37,13 +37,41 @@ _PCT_AT_LIMIT = 100.0
 # as a direct 24-bit RGB escape, which themes can't remap.
 _TRACK_STYLE = "#6c6c6c"
 _LOGIN_HINT = "Kiro session expired - run kiro-cli (or kiro-cli user login) to refresh."
-_KEY_BINDINGS = (("↑↓", "scroll"), ("←→", "nesting"), ("l", "local"), ("q", "quit"))
+_KEY_BINDINGS = (
+    ("↑↓", "scroll"),
+    ("←→", "nesting"),
+    ("s", "sort"),
+    ("l", "local"),
+    ("q", "quit"),
+)
 # Fixed rather than derived from the terminal's reported height: some
 # environments (corporate shells, VDI sessions) pin COLUMNS/LINES to a stale
 # value, which made a height-derived row count either over- or under-shoot
 # the real screen - most visibly with hundreds of folders, where an
 # over-generous count ran the table past the bottom of the terminal.
 _VISIBLE_ROWS = 10
+_SPINNER_CHARS = ("↻", "↺")
+# Short display strings for each sort state, shown in the key-hints line
+# and as column header suffixes.
+_SORT_LABEL: dict[str, str] = {
+    "cr_desc": "cr ↓",
+    "cr_asc": "cr ↑",
+    "folder_asc": "folder ↑",
+    "folder_desc": "folder ↓",
+}
+
+
+@dataclass(frozen=True)
+class LiveFooterState:
+    """Live-view footer state passed into render_snapshot during the live loop.
+
+    Bundled into one object so render_snapshot stays within the argument-count
+    limit while keeping ``frame`` separate (frame drives the scanner animation,
+    which is independent of refresh timing).
+    """
+
+    seconds_until_refresh: float = 0.0
+    refreshing: bool = False
 
 
 def render_snapshot(
@@ -52,6 +80,7 @@ def render_snapshot(
     *,
     frame: int | None = None,
     ui: LiveState | None = None,
+    live_footer: LiveFooterState | None = None,
 ) -> RenderableType:
     """Turn a Snapshot into a titled panel of usage sections.
 
@@ -65,6 +94,8 @@ def render_snapshot(
             ``None`` (one-shot) renders every local section and the full,
             untruncated usage table, matching pre-interactive behaviour.
             Otherwise the usage table is windowed to a fixed row count.
+        live_footer: Refresh state for the footer (countdown and in-progress
+            indicator). ``None`` (one-shot) uses defaults (0s, not refreshing).
 
     Returns:
         A rich renderable ready to hand to ``Console.print`` or ``Live``.
@@ -82,18 +113,23 @@ def render_snapshot(
 
     footer: list[RenderableType] = []
     if frame is not None:
-        footer.append(_footer(snap, frame))
+        lf = live_footer if live_footer is not None else LiveFooterState()
+        footer.append(_footer(snap, frame, lf))
 
     table_group: list[RenderableType] = []
     row_window: tuple[int, int, int] | None = None
     if show_local and snap.db.by_folder_model:
         scroll = ui.scroll if ui is not None else 0
+        sort = ui.sort if ui is not None else "cr_desc"
         row_window = _row_window(
             len(snap.db.by_folder_model), scroll, _visible_rows(ui)
         )
         table_group.append(
             _usage_table(
-                snap.db, scoped=snap.account is not None, row_window=row_window
+                snap.db,
+                scoped=snap.account is not None,
+                row_window=row_window,
+                sort=sort,
             )
         )
 
@@ -151,6 +187,8 @@ def _key_hints(
             text.append(" ")
         text.append(f"[{key}]", style="bold cyan")
         text.append(f" {label}", style="dim")
+        if key == "s":
+            text.append(f" ({_SORT_LABEL[ui.sort]})", style="dim")
     return text
 
 
@@ -166,22 +204,44 @@ def _stack(groups: list[list[RenderableType]]) -> RenderableType:
     return Group(*rendered)
 
 
-def _footer(snap: Snapshot, frame: int) -> RenderableType:
-    """Render the live status line: a green dot, a sweeping marker, and time.
+def _footer(
+    snap: Snapshot,
+    frame: int,
+    live: LiveFooterState,
+) -> RenderableType:
+    """Render the live status line: a green dot, refresh state, and last-updated time.
 
-    The marker advances exactly one column per redraw (``frame`` is a plain
-    counter, not a wall-clock reading), which is the smoothest motion
-    possible on a character grid - deriving the position from elapsed
-    seconds instead would need to round to a whole column on every tick,
-    and unless the speed happens to divide the tick rate evenly that
-    rounding shows up as an uneven hold-hold-jump cadence.
+    When a fetch is in progress (``live.refreshing``), a cycling spinner
+    replaces the scanner so the user knows data is being loaded.  Otherwise
+    a sweeping scanner animates within a fixed-width slot alongside a numeric
+    countdown so the user knows exactly when the next refresh will fire.
+
+    The scanner marker advances exactly one column per redraw (``frame`` is a
+    plain counter, not a wall-clock reading), which is the smoothest motion
+    possible on a character grid - deriving the position from elapsed seconds
+    instead would need to round to a whole column on every tick, and unless
+    the speed happens to divide the tick rate evenly that rounding shows up as
+    an uneven hold-hold-jump cadence.
     """
     updated = snap.generated_at.astimezone().strftime("%H:%M:%S")
+    if live.refreshing:
+        spinner = _SPINNER_CHARS[frame % len(_SPINNER_CHARS)]
+        return Text.assemble(
+            ("● ", "bold green"),
+            ("live", "green"),
+            ("   ", "dim"),
+            (spinner, "bold cyan"),
+            (" refreshing…", "dim"),
+            (f"   updated {updated}", "dim"),
+        )
     pos = _scanner_position(frame, _SCANNER_WIDTH)
+    secs = int(live.seconds_until_refresh)
     return Text.assemble(
         ("● ", "bold green"),
         ("live", "green"),
-        ("   next reading ", "dim"),
+        ("   next in ", "dim"),
+        (f"{secs}s", "bold cyan"),
+        ("  ", "dim"),
         ("·" * pos, "dim"),
         ("●", "bold cyan"),
         ("·" * (_SCANNER_WIDTH - pos - 1), "dim"),
@@ -270,20 +330,45 @@ def _burn_line(burn_rate_per_min: float) -> RenderableType:
     return Text(f"Burn  {burn_rate_per_min:.3f} cr/min (local)", style="dim")
 
 
+def _column_header(base: str, sort: TableSort, asc: TableSort, desc: TableSort) -> str:
+    """Return ``base``, or the arrowed sort label when ``sort`` is this column's key."""
+    if sort in (asc, desc):
+        return _SORT_LABEL[sort]
+    return base
+
+
+def _sorted_rows(
+    rows: tuple[tuple[str, str, int, float], ...], sort: TableSort
+) -> tuple[tuple[str, str, int, float], ...]:
+    """Reorder folder/model rows for display; ``rows`` itself is untouched."""
+    if sort == "cr_desc":
+        return tuple(sorted(rows, key=lambda r: r[3], reverse=True))
+    if sort == "cr_asc":
+        return tuple(sorted(rows, key=lambda r: r[3]))
+    if sort == "folder_asc":
+        return tuple(sorted(rows, key=lambda r: (r[0], r[1])))
+    return tuple(sorted(rows, key=lambda r: (r[0], r[1]), reverse=True))
+
+
 def _usage_table(
     db: DbSnapshot,
     *,
     scoped: bool,
     row_window: tuple[int, int, int] | None = None,
+    sort: TableSort = "cr_desc",
 ) -> RenderableType:
     """Render a bar chart of credits grouped by folder and model.
 
     ``row_window`` (start, end, total), when given, draws only that slice of
     rows - but bar scaling and the Total row always use the full, unwindowed
-    data, so they stay stable while scrolling.
+    data, so they stay stable while scrolling. ``sort`` reorders the rows
+    before windowing; the Total row and bar peak still come from the
+    unsorted ``db.by_folder_model`` so they're unaffected by sort order.
     """
     all_rows = db.by_folder_model
     peak = max(amount for *_, amount in all_rows)
+    total_credits = sum(amount for *_, amount in all_rows)
+    sorted_rows = _sorted_rows(all_rows, sort)
     start, end, _total = (
         row_window if row_window is not None else (0, len(all_rows), len(all_rows))
     )
@@ -297,26 +382,31 @@ def _usage_table(
         padding=(0, 2, 0, 0),
         expand=True,
     )
-    table.add_column("folder", overflow="fold", max_width=_FOLDER_WIDTH)
+    table.add_column(
+        _column_header("folder", sort, "folder_asc", "folder_desc"),
+        overflow="fold",
+        ratio=3,
+    )
     table.add_column("model", no_wrap=True, style="dim")
     table.add_column("share", no_wrap=True, style="dim")
-    # Spacer: the only column with a ratio, so it alone absorbs whatever
-    # width `expand` adds - folder/model/bar stay tight on the left and
-    # cr/turns stay tight against the right edge, at any terminal width.
+    # Spacer: the secondary absorber for any residual width `expand` adds
+    # once the folder column (ratio=3) has taken its share - keeps
+    # model/bar tight on the left and cr/turns tight against the right
+    # edge, at any terminal width.
     table.add_column("", ratio=1)
-    table.add_column("cr", justify="right")
+    table.add_column(_column_header("cr", sort, "cr_asc", "cr_desc"), justify="right")
     table.add_column("turns", justify="right", style="dim")
-    for folder, model, turns, amount in all_rows[start:end]:
+    for folder, model, turns, amount in sorted_rows[start:end]:
         proportion = amount / peak if peak else 0.0
+        share_pct = amount / total_credits * _PERCENT if total_credits else 0.0
         table.add_row(
             folder,
             model,
-            Text(_proportion_bar(proportion), style="cyan"),
+            Text(_proportion_bar(proportion, share_pct), style="cyan"),
             "",
             f"{amount:.2f}",
             str(turns),
         )
-    total_credits = sum(amount for *_, amount in all_rows)
     total_turns = sum(turns for _, _, turns, _ in all_rows)
     table.add_row("", "", "", "", "", "")
     table.add_row(
@@ -325,10 +415,21 @@ def _usage_table(
     return table
 
 
-def _proportion_bar(fraction: float) -> str:
-    """Render a small solid bar sized to ``fraction`` of the column width."""
-    filled = round(max(0.0, min(fraction, 1.0)) * _USAGE_BAR_WIDTH)
-    return "▇" * filled + " " * (_USAGE_BAR_WIDTH - filled)
+def _proportion_bar(fraction: float, share_pct: float) -> str:
+    """Render a solid bar sized to ``fraction`` of the peak row, plus ``share_pct``.
+
+    The bar length and the percentage answer different questions on purpose:
+    the bar shows how this row compares to the single largest row (so the
+    top row is always a full bar), while the percentage shows this row's
+    share of the *total* across all rows (so the percentages add up to
+    ~100% down the column). The percentage is right-padded to a fixed width
+    (e.g. ``  48%``) so the share column doesn't shift as values go from
+    single to triple digits.
+    """
+    clamped = max(0.0, min(fraction, 1.0))
+    filled = round(clamped * _USAGE_BAR_WIDTH)
+    bar = "▇" * filled + " " * (_USAGE_BAR_WIDTH - filled)
+    return f"{bar}  {share_pct:>4.0f}%"
 
 
 def _bar(fraction: float) -> tuple[str, str]:

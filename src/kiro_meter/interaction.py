@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
+from typing import Literal
 
 import readchar
 
@@ -22,10 +23,24 @@ _NESTING_DELTA = {
     "\x1bOC": 1,
 }
 
+TableSort = Literal["cr_desc", "cr_asc", "folder_asc", "folder_desc"]
+"""Active sort order for the usage table.
+
+Cycles through four states via the ``s`` key:
+``cr_desc`` (default) → ``cr_asc`` → ``folder_asc`` → ``folder_desc`` → …
+"""
+
+_SORT_CYCLE: tuple[TableSort, ...] = (
+    "cr_desc",
+    "cr_asc",
+    "folder_asc",
+    "folder_desc",
+)
+
 
 @dataclass(frozen=True)
 class LiveState:
-    """Scroll position, folder nesting, and local-visibility for one run.
+    """Scroll position, folder nesting, local-visibility, and sort for one run.
 
     Reset to defaults every launch - this is deliberately not persisted to
     ``~/.kiro-meter/config.toml``.
@@ -35,6 +50,7 @@ class LiveState:
     scroll: int = 0
     show_local: bool = True
     quit: bool = False
+    sort: TableSort = "cr_desc"
 
 
 def apply_key(state: LiveState, key: str) -> LiveState:
@@ -51,6 +67,9 @@ def apply_key(state: LiveState, key: str) -> LiveState:
         return replace(state, nesting=nesting)
     if key == "l":
         return replace(state, show_local=not state.show_local)
+    if key == "s":
+        idx = _SORT_CYCLE.index(state.sort)
+        return replace(state, sort=_SORT_CYCLE[(idx + 1) % len(_SORT_CYCLE)])
     if key in ("q", readchar.key.CTRL_C):
         return replace(state, quit=True)
     return state

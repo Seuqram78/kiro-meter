@@ -81,8 +81,7 @@ class PaceInfo:
 class AppConfig:
     """User-facing runtime configuration."""
 
-    refresh_seconds: int = 3
-    limit_refresh_seconds: int = 300
+    refresh_seconds: int = 30
     use_account: bool = True
     workdays: bool = False
     country: str | None = None

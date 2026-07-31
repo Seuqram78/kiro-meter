@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 from kiro_meter.models import AccountInfo, AppConfig, ConversationRow
 
 _EXPECTED_CREDITS = 0.5
-_DEFAULT_REFRESH_SECONDS = 3
+_DEFAULT_REFRESH_SECONDS = 30
 
 
 def test_conversation_row_is_frozen() -> None:

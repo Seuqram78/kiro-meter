@@ -30,7 +30,7 @@ from kiro_meter.db import (
 from kiro_meter.interaction import LiveState, apply_key, normalize
 from kiro_meter.models import Snapshot
 from kiro_meter.pace import billing_cycle_start, compute_pace
-from kiro_meter.render import render_snapshot
+from kiro_meter.render import LiveFooterState, render_snapshot
 
 try:
     import termios
@@ -131,19 +131,22 @@ def run_live(
     *,
     now_fn: Callable[[], datetime],
 ) -> None:
-    """Animate a spinner each tick; poll spend and the limit on slower cadences.
+    """Animate a spinner each tick; poll spend and the account on one cadence.
 
     Renders full-height in the terminal's alternate screen buffer, scrollable
     and re-nestable live via the keyboard (see ``kiro_meter.interaction``).
-    Disk reads stay throttled to ``cfg.refresh_seconds``/``limit_refresh_seconds``,
-    but re-aggregating by the current nesting level happens every tick from
-    the cached rows, so nesting changes feel instant.
+    All data (local disk reads and the official account fetch) refresh together
+    every ``cfg.refresh_seconds``, with the timer starting after the fetch
+    completes so a slow network call doesn't compress the interval.
+    Re-aggregating by the current nesting level happens every tick from the
+    cached rows, so nesting changes feel instant.
     """
     account: AccountInfo | None = None
     status: AccountStatus = "disabled"
     rows: list[ConversationRow] = []
-    last_fetch = 0.0
-    last_poll = 0.0
+    last_refresh = 0.0
+    fetched_at: datetime | None = None
+    refreshing = False
     frame = 0
     ui = LiveState()
     key_queue: queue.Queue[str] = queue.Queue()
@@ -161,12 +164,14 @@ def run_live(
                 while True:
                     now = now_fn()
                     monotonic = time.monotonic()
-                    if _due(last_fetch, monotonic, cfg.limit_refresh_seconds):
+
+                    if _due(last_refresh, monotonic, cfg.refresh_seconds):
+                        refreshing = True
                         account, status = resolve_account(cfg, ctx, now=now)
-                        last_fetch = monotonic
-                    if not rows or _due(last_poll, monotonic, cfg.refresh_seconds):
                         rows = load_conversations(ctx.sessions_dir)
-                        last_poll = monotonic
+                        last_refresh = time.monotonic()
+                        fetched_at = now_fn()
+                        refreshing = False
 
                     ui = _drain_keys(key_queue, ui)
                     if ui.quit:
@@ -179,9 +184,22 @@ def run_live(
                         if account is not None
                         else None
                     )
-                    snap = Snapshot(db, account, status, pace, now)
+                    snap_time = fetched_at if fetched_at is not None else now
+                    snap = Snapshot(db, account, status, pace, snap_time)
+                    seconds_until_refresh = max(
+                        0.0, cfg.refresh_seconds - (time.monotonic() - last_refresh)
+                    )
                     live.update(
-                        render_snapshot(snap, cfg, frame=frame, ui=ui),
+                        render_snapshot(
+                            snap,
+                            cfg,
+                            frame=frame,
+                            ui=ui,
+                            live_footer=LiveFooterState(
+                                seconds_until_refresh=seconds_until_refresh,
+                                refreshing=refreshing,
+                            ),
+                        ),
                         refresh=True,
                     )
                     frame += 1

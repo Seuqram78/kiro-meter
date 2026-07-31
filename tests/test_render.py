@@ -70,25 +70,23 @@ def test_needs_login_banner_shown_and_local_still_rendered() -> None:
 def _footer_of(snap: Snapshot, frame: int) -> str:
     console = Console(width=_CONSOLE_WIDTH, record=True)
     console.print(render_snapshot(snap, AppConfig(), frame=frame))
-    lines = [
-        line for line in console.export_text().splitlines() if "next reading" in line
-    ]
+    lines = [line for line in console.export_text().splitlines() if "next in" in line]
     return lines[0]
 
 
 def test_footer_shows_live_status_and_next_reading() -> None:
-    """A frame count renders the live status line with the sweeping marker."""
+    """A frame count renders the live status line with the countdown."""
     snap = Snapshot(_db(), _account(), "ok", _pace(), _NOW)
     footer = _footer_of(snap, 0)
     assert "live" in footer
-    assert "next reading" in footer
+    assert "next in" in footer
     assert "updated" in footer
 
 
 def test_no_footer_without_frame() -> None:
     """One-shot rendering (no frame) has no live footer."""
     snap = Snapshot(_db(), _account(), "ok", _pace(), _NOW)
-    assert "next reading" not in _render(snap)
+    assert "next in" not in _render(snap)
 
 
 def _marker_column(footer: str) -> int:
@@ -201,3 +199,90 @@ def test_key_hints_show_nesting_and_bindings() -> None:
     assert "scroll" in text
     assert "nesting" in text.lower()
     assert "quit" in text
+
+
+def test_key_hints_show_active_sort() -> None:
+    """The key-hints line shows the currently active sort next to [s]."""
+    snap = Snapshot(_db(), _account(), "ok", _pace(), _NOW)
+    text, _ = _render_windowed(snap, ui=LiveState(sort="folder_asc"))
+    assert "sort" in text
+    assert "folder ↑" in text
+
+
+def test_share_column_shows_percentage_of_total() -> None:
+    """The share % is each row's portion of the column total, not of the peak row."""
+    snap = Snapshot(_db(), _account(), "ok", _pace(), _NOW)
+    text = _render(snap)
+    # proj-a 0.21 / 0.31 total = 68%, proj-b 0.10 / 0.31 total = 32%
+    assert "68%" in text
+    assert "32%" in text
+
+
+def test_default_sort_is_credits_descending_with_arrow_header() -> None:
+    """One-shot rendering (no ui) defaults to cr-descending, with the arrow shown."""
+    snap = Snapshot(_db(), _account(), "ok", _pace(), _NOW)
+    text = _render(snap)
+    assert "cr ↓" in text
+    lines = [line for line in text.splitlines() if "proj-a" in line or "proj-b" in line]
+    assert "proj-a" in lines[0]  # higher credits (0.21) sorts first
+
+
+def test_sort_folder_asc_reorders_rows_and_flips_header() -> None:
+    """Cycling to folder_asc sorts rows alphabetically and updates the header."""
+    snap = Snapshot(_db(), _account(), "ok", _pace(), _NOW)
+    text, _ = _render_windowed(snap, ui=LiveState(sort="folder_asc"))
+    assert "folder ↑" in text
+    assert "cr ↓" not in text
+    assert "cr ↑" not in text
+    lines = [line for line in text.splitlines() if "proj-a" in line or "proj-b" in line]
+    assert "proj-a" in lines[0]  # "proj-a" < "proj-b" alphabetically
+
+
+def test_sort_folder_desc_reverses_row_order() -> None:
+    """folder_desc puts alphabetically-later folders first."""
+    snap = Snapshot(_db(), _account(), "ok", _pace(), _NOW)
+    text, _ = _render_windowed(snap, ui=LiveState(sort="folder_desc"))
+    assert "folder ↓" in text
+    lines = [line for line in text.splitlines() if "proj-a" in line or "proj-b" in line]
+    assert "proj-b" in lines[0]
+
+
+def test_sort_cr_asc_reverses_credit_order() -> None:
+    """cr_asc puts the lowest-credit row first."""
+    snap = Snapshot(_db(), _account(), "ok", _pace(), _NOW)
+    text, _ = _render_windowed(snap, ui=LiveState(sort="cr_asc"))
+    assert "cr ↑" in text
+    lines = [line for line in text.splitlines() if "proj-a" in line or "proj-b" in line]
+    assert "proj-b" in lines[0]  # lower credits (0.10) sorts first
+
+
+def test_sort_does_not_change_total_row_or_shares() -> None:
+    """Sort is purely presentational: Total and per-row shares stay stable."""
+    snap = Snapshot(_db(), _account(), "ok", _pace(), _NOW)
+    default_text, _ = _render_windowed(snap, ui=LiveState())
+    sorted_text, _ = _render_windowed(snap, ui=LiveState(sort="folder_desc"))
+    default_total = next(line for line in default_text.splitlines() if "Total" in line)
+    sorted_total = next(line for line in sorted_text.splitlines() if "Total" in line)
+    assert default_total == sorted_total
+    assert "68%" in sorted_text
+    assert "32%" in sorted_text
+
+
+def test_folder_column_is_not_truncated_on_wide_terminal() -> None:
+    """A long folder path isn't cut off or folded when there's ample width."""
+    long_folder = "/home/me/a-genuinely-long-project-folder-name-for-testing"
+    db = DbSnapshot(
+        today_credits=0.31,
+        today_turns=18,
+        session_credits=0.12,
+        session_turns=6,
+        burn_rate_per_min=0.02,
+        by_folder_model=((long_folder, "sonnet-4.5", 8, 0.21),),
+        recent=(),
+        approx=True,
+    )
+    snap = Snapshot(db, _account(), "ok", _pace(), _NOW)
+    console = Console(width=160, record=True)
+    console.print(render_snapshot(snap, AppConfig()))
+    text = console.export_text()
+    assert long_folder in text

@@ -100,3 +100,17 @@ def test_normalize_with_no_data_still_yields_at_least_one() -> None:
     """An empty data set (max_nesting=0) still leaves nesting >= 1."""
     state = normalize(LiveState(nesting=FULL_NESTING), max_nesting=0)
     assert state.nesting == 1
+
+
+def test_s_cycles_through_sort_states() -> None:
+    """'s' advances cr desc -> cr asc -> folder asc -> folder desc -> cr desc."""
+    state = LiveState()
+    assert state.sort == "cr_desc"
+    state = apply_key(state, "s")
+    assert state.sort == "cr_asc"
+    state = apply_key(state, "s")
+    assert state.sort == "folder_asc"
+    state = apply_key(state, "s")
+    assert state.sort == "folder_desc"
+    state = apply_key(state, "s")
+    assert state.sort == "cr_desc"
