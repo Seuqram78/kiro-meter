@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from kiro_meter.models import AccountInfo, DbSnapshot, PaceInfo
+from kiro_meter.models import AccountInfo, DbSnapshot, PaceInfo, UsageRow
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -29,8 +29,8 @@ def db_snapshot() -> DbSnapshot:
         session_turns=6,
         burn_rate_per_min=0.02,
         by_folder_model=(
-            ("/home/me/proj-a", "sonnet-4.5", 8, 0.21),
-            ("/home/me/proj-b", "haiku-4.5", 12, 0.10),
+            UsageRow("/home/me/proj-a", "sonnet-4.5", 8, 0.21),
+            UsageRow("/home/me/proj-b", "haiku-4.5", 12, 0.10),
         ),
         recent=(),
         approx=True,
