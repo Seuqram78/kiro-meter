@@ -31,12 +31,35 @@ _SCANNER_WIDTH = 10
 _USAGE_BAR_WIDTH = 16
 _PCT_NEAR_LIMIT = 75.0
 _PCT_AT_LIMIT = 100.0
-# A truecolor hex, not a named/8-bit color: named ANSI colors (incl. "dim")
+
+# --- Palette -----------------------------------------------------------
+# A quiet, low-saturation earth palette rather than saturated primary
+# red/yellow/green/cyan: the same colors a well-worn ceramic bowl or raw
+# linen would carry (wabi-sabi favours natural, imperfect materials over
+# bright, factory-uniform ones), and every hue sits close in *lightness*
+# so the screen reads as one calm surface instead of a stoplight.
+#
+# The ramp still does its job as a status signal - sage < ochre < terracotta
+# is unambiguous by hue *and* by how warm/saturated it gets, so the meaning
+# survives even for readers who see hue differently. A single distinct
+# slate-blue accent is reserved for "informational" marks (pacing, the
+# live footer, key hints) that aren't a limit-status judgement, so color
+# consistently means one thing: warm earth = "how close to the limit",
+# cool slate = "something is happening right now".
+#
+# All are truecolor hex, not named/8-bit ANSI: named colors (incl. "dim")
 # are palette indices, and terminal themes commonly remap the 256-color
 # greyscale ramp to a tinted shade - on the reporting terminal that turned
 # bar tracks into a near-black/olive checkerboard. A #rrggbb triplet is sent
 # as a direct 24-bit RGB escape, which themes can't remap.
-_TRACK_STYLE = "#6c6c6c"
+_COLOR_CALM = "#8a9a7e"  # sage - comfortably under the limit
+_COLOR_ATTENTION = "#c99a54"  # ochre - approaching the limit
+_COLOR_CRITICAL = "#b1543f"  # terracotta - at or over the limit
+_COLOR_ACCENT = "#6f8fa3"  # slate - pacing, live status, key hints
+_COLOR_LIVE = "#87a06f"  # moss - the "still running" dot
+_TRACK_STYLE = "#7d766c"  # warm stone - unfilled bar track, every gauge
+# -------------------------------------------------------------------------
+
 _LOGIN_HINT = "Kiro session expired - run kiro-cli (or kiro-cli user login) to refresh."
 _KEY_BINDINGS = (
     ("↑↓", "scroll"),
@@ -143,6 +166,9 @@ def render_snapshot(
         title=_title(snap, cfg),
         title_align="left",
         padding=(1, 2),
+        # A dim, stone-toned frame rather than the default bright border:
+        # the chrome recedes so the numbers stay the point, not the box.
+        border_style=_TRACK_STYLE,
     )
 
 
@@ -186,7 +212,7 @@ def _key_hints(
     for i, (key, label) in enumerate(_KEY_BINDINGS):
         if i:
             text.append(" ")
-        text.append(f"[{key}]", style="bold cyan")
+        text.append(f"[{key}]", style=f"bold {_COLOR_ACCENT}")
         text.append(f" {label}", style="dim")
         if key == "s":
             text.append(f" ({_SORT_LABEL[ui.sort]})", style="dim")
@@ -228,23 +254,23 @@ def _footer(
     if live.refreshing:
         spinner = _SPINNER_CHARS[frame % len(_SPINNER_CHARS)]
         return Text.assemble(
-            ("● ", "bold green"),
-            ("live", "green"),
+            ("● ", f"bold {_COLOR_LIVE}"),
+            ("live", _COLOR_LIVE),
             ("   ", "dim"),
-            (spinner, "bold cyan"),
+            (spinner, f"bold {_COLOR_ACCENT}"),
             (" refreshing…", "dim"),
             (f"   updated {updated}", "dim"),
         )
     pos = _scanner_position(frame, _SCANNER_WIDTH)
     secs = int(live.seconds_until_refresh)
     return Text.assemble(
-        ("● ", "bold green"),
-        ("live", "green"),
+        ("● ", f"bold {_COLOR_LIVE}"),
+        ("live", _COLOR_LIVE),
         ("   next in ", "dim"),
-        (f"{secs}s", "bold cyan"),
+        (f"{secs}s", f"bold {_COLOR_ACCENT}"),
         ("  ", "dim"),
         ("·" * pos, "dim"),
-        ("●", "bold cyan"),
+        ("●", f"bold {_COLOR_ACCENT}"),
         ("·" * (_SCANNER_WIDTH - pos - 1), "dim"),
         (f"   updated {updated}", "dim"),
     )
@@ -267,7 +293,7 @@ def _title(snap: Snapshot, cfg: AppConfig) -> str:
 def _account_section(snap: Snapshot) -> RenderableType:
     """Render the plan gauge, the login banner, or an unavailable note."""
     if snap.account_status == "needs_login":
-        return Text(_LOGIN_HINT, style="yellow")
+        return Text(_LOGIN_HINT, style=_COLOR_ATTENTION)
     if snap.account is None:
         return Text("Plan: official limit unavailable", style="dim")
     return _plan_gauge(snap.account)
@@ -290,12 +316,12 @@ def _plan_gauge(account: AccountInfo) -> RenderableType:
 
 
 def _usage_style(pct: float) -> str:
-    """Green under load, amber near the limit, red at or over it."""
+    """Sage under load, ochre near the limit, terracotta at or over it."""
     if pct >= _PCT_AT_LIMIT:
-        return "red"
+        return _COLOR_CRITICAL
     if pct >= _PCT_NEAR_LIMIT:
-        return "yellow"
-    return "green"
+        return _COLOR_ATTENTION
+    return _COLOR_CALM
 
 
 def _today_line(db: DbSnapshot, pace: PaceInfo | None) -> RenderableType:
@@ -305,7 +331,7 @@ def _today_line(db: DbSnapshot, pace: PaceInfo | None) -> RenderableType:
         pct = pace.today_fraction * _PERCENT
         return Text.assemble(
             "Today ",
-            (filled, "cyan"),
+            (filled, _COLOR_ACCENT),
             (empty, _TRACK_STYLE),
             (f"  {db.today_credits:.2f} cr  ({pct:.0f}% allowance, local)", ""),
         )
@@ -419,7 +445,7 @@ def _usage_table(
         table.add_row(
             folder,
             model,
-            Text(_proportion_bar(proportion, share_pct), style="cyan"),
+            Text(_proportion_bar(proportion, share_pct), style=_COLOR_ACCENT),
             "",
             f"{amount:.2f}",
             str(turns),
