@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Literal, NamedTuple
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -29,6 +29,20 @@ class ConversationRow:
     updated_at_ms: int
 
 
+class UsageRow(NamedTuple):
+    """One aggregated usage group: a folder, a model, and their totals.
+
+    A NamedTuple rather than a dataclass so the several places that already
+    unpack or index these rows positionally (JSON export included) keep
+    working unchanged, while new code can read them by field name.
+    """
+
+    folder: str
+    model: str
+    turns: int
+    credits: float
+
+
 @dataclass(frozen=True)
 class DbSnapshot:
     """Aggregated local spend for the current view."""
@@ -38,7 +52,7 @@ class DbSnapshot:
     session_credits: float
     session_turns: int
     burn_rate_per_min: float | None
-    by_folder_model: tuple[tuple[str, str, int, float], ...]
+    by_folder_model: tuple[UsageRow, ...]
     recent: tuple[ConversationRow, ...]
     approx: bool
 
