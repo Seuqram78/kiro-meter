@@ -107,7 +107,7 @@ Pretty-printed here for readability:
 
 ```json
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "generated_at": "2026-07-29T12:00:00+00:00",
   "account_status": "ok",
   "account": {
@@ -122,12 +122,16 @@ Pretty-printed here for readability:
     "overage_cap": 10000.0,
     "overage_enabled": false
   },
-  "today": { "credits": 0.31, "turns": 18 },
+  "today": { "credits": 0.31, "turns": 18, "flagged": false },
   "burn_rate_per_min": 0.02,
   "pace": {
     "mode": "calendar",
     "allowance_per_day": 1.61,
-    "can_spend_per_day": 11.37,
+    "can_spend_credits": 11.37,
+    "if_done_today_per_day": 1.72,
+    "since_day_start_per_day": 1.69,
+    "days_gone": 26,
+    "days_forecast": 3,
     "today_fraction": 0.15,
     "days_until_reset": 4.0,
     "days_elapsed": 27.0,
@@ -157,12 +161,17 @@ Pretty-printed here for readability:
 | `account.tier` / `.sub_type` | string | Plan name and subscription type. |
 | `account.next_reset` | string (ISO-8601) | Start of the next billing cycle. |
 | `account.overage_used` / `.overage_cap` / `.overage_enabled` | number / number / boolean | Overage state, if enabled. |
-| `today.credits` / `.turns` | number / integer | Today's local spend (always present). |
+| `today.credits` / `.turns` | number / integer | Today's spend: the API-usage baseline diff when an account is available, else the local session-file sum (always present). |
+| `today.flagged` | boolean | `true` when the local session-file sum exceeds the API-baseline figure, signalling the two sources disagree. |
 | `burn_rate_per_min` | number or `null` | Recent local credits/minute. |
 | `pace` | object or `null` | `null` whenever `account` is `null`. |
 | `pace.mode` | string | `calendar` or `workday`. |
-| `pace.allowance_per_day` / `.can_spend_per_day` | number or `null` | Even-budget vs. rest-of-cycle daily pace. |
-| `pace.days_until_reset` / `.days_elapsed` | number | Days left/elapsed in the current cycle. |
+| `pace.allowance_per_day` | number or `null` | Flat even-budget daily rate: `limit / cycle length`. |
+| `pace.can_spend_credits` | number or `null` | Schedule-adherence balance in credits: `(days elapsed × allowance) − used`. Positive means ahead of the ideal even-pace line (banked slack); negative means over it. |
+| `pace.if_done_today_per_day` | number or `null` | Daily rate for the rest of the cycle **after today**, assuming no more spend happens today. Whole days only (tomorrow → reset). |
+| `pace.since_day_start_per_day` | number or `null` | Same shape as the live rest-of-cycle rate, but with the numerator frozen to this morning's API-usage baseline instead of the current `used` — isolates the effect of time passing from today's actual spending. `null` when no baseline is available yet. |
+| `pace.days_gone` / `.days_forecast` | integer | Whole days fully completed before today, and whole days remaining after today until reset (today itself is neither — it's the in-progress day). `days_forecast` is the denominator `if_done_today_per_day` uses. |
+| `pace.days_until_reset` / `.days_elapsed` | number | Fractional days left/elapsed in the current cycle (includes the in-progress fraction of today). |
 | `pace.projection_runout` | string (ISO-8601) or `null` | Projected credit-exhaustion date, if trending over. |
 | `usage` | object or `null` | `null` when there's no local spend data yet. |
 | `usage.scope` | string | `"this cycle"` when `account` is present, else `"recent"`. |

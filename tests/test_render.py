@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, datetime
 
 from rich.console import Console
@@ -30,6 +31,35 @@ def test_official_gauge_rendered_when_account_present() -> None:
     assert "11.21" in text
     assert "50" in text
     assert "official" in text.lower()
+
+
+def test_pace_lines_render_forecast_and_days() -> None:
+    """The Pace block shows if-done-today, since-day-start, and the days count."""
+    snap = Snapshot(_db(), _account(), "ok", _pace(), _NOW)
+    text = _render(snap)
+    assert "if done today" in text
+    assert "since day start" in text
+    assert "days gone" in text
+    assert "days forecast" in text
+
+
+def test_can_spend_ahead_of_pace_is_not_styled_as_over() -> None:
+    """A positive can_spend_credits reads as being ahead of pace."""
+    pace = replace(_pace(), can_spend_credits=11.37)
+    snap = Snapshot(_db(), _account(), "ok", pace, _NOW)
+    text = _render(snap)
+    assert "ahead of pace" in text
+    assert "over pace" not in text
+
+
+def test_can_spend_negative_reads_as_over_pace() -> None:
+    """A negative can_spend_credits reads as being over pace, sign stripped."""
+    pace = replace(_pace(), can_spend_credits=-11.37)
+    snap = Snapshot(_db(), _account(), "ok", pace, _NOW)
+    text = _render(snap)
+    assert "over pace" in text
+    assert "11.37" in text
+    assert "-11.37" not in text
 
 
 def test_today_flagged_shows_warning_marker() -> None:

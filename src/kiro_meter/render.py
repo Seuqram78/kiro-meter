@@ -333,17 +333,38 @@ def _today_line(
 
 
 def _pace_lines(pace: PaceInfo) -> list[RenderableType]:
-    """Render the allowance and can-spend pace lines."""
+    """Render the allowance, can-spend, forecast, and days-count pace lines."""
     lines: list[RenderableType] = []
     if pace.allowance_per_day is not None:
         allowance = f"Pace  allowance {pace.allowance_per_day:.2f} cr/day (even budget)"
         lines.append(Text(allowance, style="dim"))
-    if pace.can_spend_per_day is not None:
-        can_spend = (
-            f"      can spend {pace.can_spend_per_day:.2f} cr/day (rest of cycle)"
+    if pace.can_spend_credits is not None:
+        lines.append(_can_spend_line(pace.can_spend_credits))
+    if pace.if_done_today_per_day is not None:
+        if_done_today = (
+            f"      if done today {pace.if_done_today_per_day:.2f} cr/day "
+            "(rest of cycle, from tomorrow)"
         )
-        lines.append(Text(can_spend, style="dim"))
+        lines.append(Text(if_done_today, style="dim"))
+    if pace.since_day_start_per_day is not None:
+        since_day_start = (
+            f"      since day start {pace.since_day_start_per_day:.2f} cr/day "
+            "(rest of cycle, time-adjusted)"
+        )
+        lines.append(Text(since_day_start, style="dim"))
+    days = (
+        f"      {pace.days_gone} days gone, today, {pace.days_forecast} days forecast"
+    )
+    lines.append(Text(days, style="dim"))
     return lines
+
+
+def _can_spend_line(can_spend_credits: float) -> RenderableType:
+    """Render the schedule-adherence balance, styled distinctly when over pace."""
+    if can_spend_credits >= 0:
+        text = f"      can spend {can_spend_credits:.2f} cr ahead of pace"
+        return Text(text, style="dim")
+    return Text(f"      can spend {-can_spend_credits:.2f} cr over pace", style="red")
 
 
 def _burn_line(burn_rate_per_min: float) -> RenderableType:

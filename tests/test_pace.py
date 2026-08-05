@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 import httpx
 
 from kiro_meter.models import AccountInfo, AppConfig, DbSnapshot
-from kiro_meter.pace import NagerHolidayProvider, compute_pace
+from kiro_meter.pace import NagerHolidayProvider, PaceExtras, compute_pace
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -19,6 +19,10 @@ _LIMIT = 50.0
 _CYCLE_DAYS = 31.0
 _REMAINING = 36.0
 _DAYS_LEFT = 17.0
+_DAYS_GONE = 14
+_DAYS_FORECAST = 16
+_ELAPSED = 14.0
+_USED = 14.0
 _EXPECTED_WORKING_DAYS = 5
 
 
@@ -44,10 +48,10 @@ def _db(today: float) -> DbSnapshot:
     return DbSnapshot(today, 1, today, 1, None, (), (), approx=True)
 
 
-def test_allowance_and_actual_pace_calendar() -> None:
-    """Allowance is the even daily budget; actual is remaining/days-left."""
+def test_allowance_and_forecast_pace_calendar() -> None:
+    """Allowance is the even daily budget; if-done-today uses whole days left."""
     pace = compute_pace(
-        _account(used=14.0, limit=_LIMIT), _db(1.0), AppConfig(), now=_NOW
+        _account(used=_USED, limit=_LIMIT), _db(1.0), AppConfig(), now=_NOW
     )
     assert pace.mode == "calendar"
     assert pace.allowance_per_day is not None
@@ -55,20 +59,58 @@ def test_allowance_and_actual_pace_calendar() -> None:
     assert round(pace.allowance_per_day, _NDIGITS) == round(
         _LIMIT / _CYCLE_DAYS, _NDIGITS
     )
-    # actual = remaining 36 over 17 days left (Jul 15 -> Aug 1)
-    assert pace.can_spend_per_day is not None
-    assert round(pace.can_spend_per_day, _NDIGITS) == round(
-        _REMAINING / _DAYS_LEFT, _NDIGITS
+    # at exact midnight Jul 15: 14 whole days gone, today, 16 forecast (31 total)
+    assert pace.days_gone == _DAYS_GONE
+    assert pace.days_forecast == _DAYS_FORECAST
+    # if done today = remaining 36 over the 16 whole days after today
+    assert pace.if_done_today_per_day is not None
+    assert round(pace.if_done_today_per_day, _NDIGITS) == round(
+        _REMAINING / _DAYS_FORECAST, _NDIGITS
+    )
+    # can spend = (days elapsed * allowance) - used, banked against ideal pace
+    assert pace.can_spend_credits is not None
+    expected_can_spend = _ELAPSED * (_LIMIT / _CYCLE_DAYS) - _USED
+    assert round(pace.can_spend_credits, _NDIGITS) == round(
+        expected_can_spend, _NDIGITS
+    )
+    # no baseline passed in -> since_day_start is unavailable
+    assert pace.since_day_start_per_day is None
+
+
+def test_can_spend_negative_when_over_ideal_pace() -> None:
+    """Spending past the ideal-pace target makes can_spend_credits negative."""
+    over_pace_used = 30.0
+    pace = compute_pace(
+        _account(used=over_pace_used, limit=_LIMIT), _db(1.0), AppConfig(), now=_NOW
+    )
+    assert pace.can_spend_credits is not None
+    assert pace.can_spend_credits < 0
+
+
+def test_since_day_start_uses_baseline_numerator() -> None:
+    """since_day_start uses this morning's baseline, not the live used total."""
+    baseline = 10.0
+    pace = compute_pace(
+        _account(used=_USED, limit=_LIMIT),
+        _db(1.0),
+        AppConfig(),
+        now=_NOW,
+        extras=PaceExtras(today_baseline=baseline),
+    )
+    assert pace.since_day_start_per_day is not None
+    assert round(pace.since_day_start_per_day, _NDIGITS) == round(
+        (_LIMIT - baseline) / _DAYS_LEFT, _NDIGITS
     )
 
 
-def test_actual_pace_none_when_reset_imminent() -> None:
-    """When under half a day remains, actual pace is None (no divide blow-up)."""
+def test_if_done_today_none_when_reset_imminent() -> None:
+    """When under a day remains, if-done-today is None (no whole days left)."""
     now = datetime(2026, 7, 31, 23, 50, tzinfo=UTC)
     pace = compute_pace(
         _account(used=40.0, limit=_LIMIT), _db(0.0), AppConfig(), now=now
     )
-    assert pace.can_spend_per_day is None
+    assert pace.days_forecast == 0
+    assert pace.if_done_today_per_day is None
 
 
 def _holidays_payload() -> list[dict[str, object]]:
@@ -111,6 +153,10 @@ def test_workday_mode_sets_mode_and_uses_provider(tmp_path: Path) -> None:
     provider = NagerHolidayProvider(client=client, cache_dir=tmp_path)
     cfg = AppConfig(workdays=True, country="US")
     pace = compute_pace(
-        _account(14.0, 50.0), _db(1.0), cfg, now=_NOW, holidays=provider
+        _account(14.0, 50.0),
+        _db(1.0),
+        cfg,
+        now=_NOW,
+        extras=PaceExtras(holidays=provider),
     )
     assert pace.mode == "workday"

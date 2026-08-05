@@ -22,6 +22,7 @@ if TYPE_CHECKING:
 
 _MS = 1000
 _EXIT_INDETERMINATE = 20
+_SCHEMA_VERSION = 2
 
 
 def test_version_is_a_string() -> None:
@@ -52,7 +53,7 @@ def test_run_once_json_local_only(
         code = run_once(cfg, ctx, now=now, as_json=True)
     out = capsys.readouterr().out
     data = json.loads(out)
-    assert data["schema_version"] == 1
+    assert data["schema_version"] == _SCHEMA_VERSION
     assert data["account_status"] == "disabled"
     assert data["account"] is None
     assert data["pace"] is None

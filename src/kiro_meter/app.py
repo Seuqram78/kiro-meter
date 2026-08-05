@@ -30,7 +30,7 @@ from kiro_meter.db import (
 )
 from kiro_meter.interaction import LiveState, apply_key, normalize
 from kiro_meter.models import Snapshot
-from kiro_meter.pace import billing_cycle_start, compute_pace
+from kiro_meter.pace import PaceExtras, billing_cycle_start, compute_pace
 from kiro_meter.render import LiveFooterState, render_snapshot
 
 try:
@@ -60,7 +60,7 @@ _EXIT_NEAR_LIMIT = 10
 _EXIT_AT_LIMIT = 11
 _EXIT_INDETERMINATE = 20
 _EXIT_ERROR = 30
-_SCHEMA_VERSION = 1
+_SCHEMA_VERSION = 2
 
 
 @dataclass(frozen=True)
@@ -136,7 +136,13 @@ def build_snapshot(
     today_credits, today_flagged = _resolve_today(db.today_credits, account, baseline)
     db = replace(db, today_credits=today_credits)
     pace = (
-        compute_pace(account, db, cfg, now=now, holidays=ctx.holidays)
+        compute_pace(
+            account,
+            db,
+            cfg,
+            now=now,
+            extras=PaceExtras(holidays=ctx.holidays, today_baseline=baseline),
+        )
         if account is not None
         else None
     )
@@ -223,7 +229,15 @@ def run_live(
                     )
                     db = replace(db, today_credits=today_credits)
                     pace = (
-                        compute_pace(account, db, cfg, now=now, holidays=ctx.holidays)
+                        compute_pace(
+                            account,
+                            db,
+                            cfg,
+                            now=now,
+                            extras=PaceExtras(
+                                holidays=ctx.holidays, today_baseline=today_baseline
+                            ),
+                        )
                         if account is not None
                         else None
                     )
@@ -371,7 +385,11 @@ def _pace_dict(pace: PaceInfo | None) -> dict[str, object] | None:
     return {
         "mode": pace.mode,
         "allowance_per_day": pace.allowance_per_day,
-        "can_spend_per_day": pace.can_spend_per_day,
+        "can_spend_credits": pace.can_spend_credits,
+        "if_done_today_per_day": pace.if_done_today_per_day,
+        "since_day_start_per_day": pace.since_day_start_per_day,
+        "days_gone": pace.days_gone,
+        "days_forecast": pace.days_forecast,
         "today_fraction": pace.today_fraction,
         "days_until_reset": pace.days_until_reset,
         "days_elapsed": pace.days_elapsed,

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import calendar
 import json
+import math
+from dataclasses import dataclass
 from datetime import date, timedelta
 from typing import TYPE_CHECKING, Protocol
 
@@ -140,13 +142,31 @@ class NagerHolidayProvider:
         )
 
 
+@dataclass(frozen=True)
+class PaceExtras:
+    """Optional inputs to `compute_pace` beyond the core account/db/cfg/now.
+
+    Bundled so `compute_pace` stays within the argument-count limit; these two
+    are naturally paired as "extra context the caller may or may not have."
+    """
+
+    holidays: HolidayProvider | None = None
+    today_baseline: float | None = None
+    """The official `used` figure captured at the first run of the local day
+    (see `kiro_meter.baseline`). Feeds `since_day_start_per_day`; that field
+    is `None` without it."""
+
+
+_DEFAULT_EXTRAS = PaceExtras()
+
+
 def compute_pace(
     account: AccountInfo,
     db: DbSnapshot,
     cfg: AppConfig,
     *,
     now: datetime,
-    holidays: HolidayProvider | None = None,
+    extras: PaceExtras = _DEFAULT_EXTRAS,
 ) -> PaceInfo:
     """Derive pacing numbers comparing spend against the billing cycle.
 
@@ -155,12 +175,13 @@ def compute_pace(
         db: Local spend snapshot (source of today's credits).
         cfg: Runtime configuration (workday mode, country/region).
         now: The current instant (timezone-aware).
-        holidays: Working-day source; required for workday mode.
+        extras: Optional holiday provider and today's API-usage baseline.
 
     Returns:
         The computed pacing figures. In calendar mode denominators are calendar
         days; in workday mode they are working days.
     """
+    holidays = extras.holidays
     remaining = max(account.limit - account.used, 0.0)
     cycle_start = billing_cycle_start(account.next_reset)
     calendar_until = _days_between(now, account.next_reset)
@@ -179,14 +200,31 @@ def compute_pace(
         non_working, available = False, True
 
     allowance = account.limit / cycle_len if cycle_len >= _MIN_DAYS else None
-    actual = remaining / days_until if days_until >= _MIN_DAYS else None
     today_fraction = db.today_credits / allowance if allowance else None
-    runout = now + timedelta(days=days_until) if actual is not None else None
+    runout = (
+        now + timedelta(days=days_until) if days_until >= _MIN_DAYS else None
+    )
+
+    elapsed_raw = cycle_len - days_until
+    days_gone = max(math.floor(elapsed_raw), 0)
+    days_forecast = max(math.ceil(days_until) - 1, 0)
+
+    can_spend_credits = (
+        elapsed_raw * allowance - account.used if allowance is not None else None
+    )
+    if_done_today_per_day = remaining / days_forecast if days_forecast >= 1 else None
+    since_day_start_per_day = _since_day_start(
+        account, extras.today_baseline, days_until
+    )
 
     return PaceInfo(
         mode=mode,
         allowance_per_day=allowance,
-        can_spend_per_day=actual,
+        can_spend_credits=can_spend_credits,
+        if_done_today_per_day=if_done_today_per_day,
+        since_day_start_per_day=since_day_start_per_day,
+        days_gone=days_gone,
+        days_forecast=days_forecast,
         today_fraction=today_fraction,
         days_until_reset=calendar_until,
         days_elapsed=calendar_elapsed,
@@ -194,6 +232,21 @@ def compute_pace(
         non_working_today=non_working,
         holidays_available=available,
     )
+
+
+def _since_day_start(
+    account: AccountInfo, today_baseline: float | None, days_until: float
+) -> float | None:
+    """Rate for the rest of the cycle using this morning's baseline as the numerator.
+
+    Same live, shrinking denominator as the moment-to-moment rate would use,
+    so the number rises through the day purely from time passing, isolating
+    that effect from today's actual spending (which the numerator ignores).
+    """
+    if today_baseline is None or days_until < _MIN_DAYS:
+        return None
+    remaining_from_start = max(account.limit - today_baseline, 0.0)
+    return remaining_from_start / days_until
 
 
 def _workday_spans(
