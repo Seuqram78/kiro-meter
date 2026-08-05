@@ -47,6 +47,7 @@ def test_run_once_json_local_only(
             client=client,
             tz=UTC,
             holidays=None,
+            state_db_path=sessions_dir.parent / "state.sqlite3",
         )
         code = run_once(cfg, ctx, now=now, as_json=True)
     out = capsys.readouterr().out
@@ -55,7 +56,7 @@ def test_run_once_json_local_only(
     assert data["account_status"] == "disabled"
     assert data["account"] is None
     assert data["pace"] is None
-    assert data["today"] == {"credits": 0.02, "turns": 1}
+    assert data["today"] == {"credits": 0.02, "turns": 1, "flagged": False}
     assert data["usage"]["scope"] == "recent"
     assert data["usage"]["by_folder_model"] == [["/p", "haiku", 1, 0.02]]
     assert code == _EXIT_INDETERMINATE

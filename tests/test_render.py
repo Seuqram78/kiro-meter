@@ -32,6 +32,20 @@ def test_official_gauge_rendered_when_account_present() -> None:
     assert "official" in text.lower()
 
 
+def test_today_flagged_shows_warning_marker() -> None:
+    """A flagged Today line warns that the local sum exceeds the API total."""
+    snap = Snapshot(_db(), _account(), "ok", _pace(), _NOW, today_flagged=True)
+    text = _render(snap)
+    assert "exceeds api total" in text.lower()
+
+
+def test_today_not_flagged_has_no_warning_marker() -> None:
+    """A non-flagged snapshot's Today line has no warning marker."""
+    snap = Snapshot(_db(), _account(), "ok", _pace(), _NOW, today_flagged=False)
+    text = _render(snap)
+    assert "exceeds" not in text.lower()
+
+
 def test_usage_table_aggregates_folder_and_model() -> None:
     """The usage table shows each folder, its model, credits, and turns."""
     snap = Snapshot(_db(), _account(), "ok", _pace(), _NOW)

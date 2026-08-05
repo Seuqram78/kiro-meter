@@ -103,37 +103,15 @@ def render_snapshot(
     """
     show_local = ui is None or ui.show_local
     official: list[RenderableType] = [_account_section(snap)]
-
-    budget: list[RenderableType] = []
-    if show_local:
-        budget.append(_today_line(snap.db, snap.pace))
-        if snap.pace is not None:
-            budget.extend(_pace_lines(snap.pace))
-        if snap.db.burn_rate_per_min is not None:
-            budget.append(_burn_line(snap.db.burn_rate_per_min))
+    budget = _budget_section(snap) if show_local else []
+    table_group, row_window = (
+        _table_section(snap, ui) if show_local else ([], None)
+    )
 
     footer: list[RenderableType] = []
     if frame is not None:
         lf = live_footer if live_footer is not None else LiveFooterState()
         footer.append(_footer(snap, frame, lf))
-
-    table_group: list[RenderableType] = []
-    row_window: tuple[int, int, int] | None = None
-    if show_local and snap.db.by_folder_model:
-        scroll = ui.scroll if ui is not None else 0
-        sort = ui.sort if ui is not None else "cr_desc"
-        row_window = _row_window(
-            len(snap.db.by_folder_model), scroll, _visible_rows(ui)
-        )
-        table_group.append(
-            _usage_table(
-                snap.db,
-                scoped=snap.account is not None,
-                row_window=row_window,
-                sort=sort,
-            )
-        )
-
     if ui is not None:
         footer.append(_key_hints(ui, row_window))
 
@@ -144,6 +122,36 @@ def render_snapshot(
         title_align="left",
         padding=(1, 2),
     )
+
+
+def _budget_section(snap: Snapshot) -> list[RenderableType]:
+    """Render the today/pace/burn lines shown above the usage table."""
+    budget: list[RenderableType] = [
+        _today_line(snap.db, snap.pace, today_flagged=snap.today_flagged)
+    ]
+    if snap.pace is not None:
+        budget.extend(_pace_lines(snap.pace))
+    if snap.db.burn_rate_per_min is not None:
+        budget.append(_burn_line(snap.db.burn_rate_per_min))
+    return budget
+
+
+def _table_section(
+    snap: Snapshot, ui: LiveState | None
+) -> tuple[list[RenderableType], tuple[int, int, int] | None]:
+    """Render the usage table and its row window, or nothing if there's no data."""
+    if not snap.db.by_folder_model:
+        return [], None
+    scroll = ui.scroll if ui is not None else 0
+    sort = ui.sort if ui is not None else "cr_desc"
+    row_window = _row_window(len(snap.db.by_folder_model), scroll, _visible_rows(ui))
+    table = _usage_table(
+        snap.db,
+        scoped=snap.account is not None,
+        row_window=row_window,
+        sort=sort,
+    )
+    return [table], row_window
 
 
 def _visible_rows(ui: LiveState | None) -> int | None:
@@ -298,18 +306,30 @@ def _usage_style(pct: float) -> str:
     return "green"
 
 
-def _today_line(db: DbSnapshot, pace: PaceInfo | None) -> RenderableType:
-    """Render today's spend, with a pace bar when a target exists."""
+def _today_line(
+    db: DbSnapshot, pace: PaceInfo | None, *, today_flagged: bool
+) -> RenderableType:
+    """Render today's spend, with a pace bar when a target exists.
+
+    The figure comes from the API-usage baseline when an account is
+    available (see ``app._resolve_today``), else it falls back to the local
+    session-file sum.
+    """
+    source = "official" if pace is not None else "local"
+    flag = "  ⚠ local sum exceeds API total" if today_flagged else ""
     if pace is not None and pace.today_fraction is not None:
         filled, empty = _bar(pace.today_fraction)
         pct = pace.today_fraction * _PERCENT
+        detail = f"  {db.today_credits:.2f} cr  ({pct:.0f}% allowance, {source}){flag}"
         return Text.assemble(
             "Today ",
             (filled, "cyan"),
             (empty, _TRACK_STYLE),
-            (f"  {db.today_credits:.2f} cr  ({pct:.0f}% allowance, local)", ""),
+            (detail, ""),
         )
-    return Text(f"Today  {db.today_credits:.2f} cr  ({db.today_turns} turns, local)")
+    return Text(
+        f"Today  {db.today_credits:.2f} cr  ({db.today_turns} turns, {source}){flag}"
+    )
 
 
 def _pace_lines(pace: PaceInfo) -> list[RenderableType]:

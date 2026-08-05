@@ -99,3 +99,5 @@ class Snapshot:
     account_status: AccountStatus
     pace: PaceInfo | None
     generated_at: datetime
+    today_flagged: bool = False
+    """Whether the local session-file sum for today exceeds the API-baseline diff."""
