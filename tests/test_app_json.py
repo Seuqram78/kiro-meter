@@ -11,7 +11,7 @@ from kiro_meter.models import Snapshot
 from tests.conftest import account_info, db_snapshot, pace_info
 
 _NOW = datetime(2026, 7, 28, 12, 0, tzinfo=UTC)
-_SCHEMA_VERSION = 2
+_SCHEMA_VERSION = 3
 _EXPECTED_TOTAL_CREDITS = 0.31
 _EXPECTED_TOTAL_TURNS = 20
 

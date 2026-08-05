@@ -107,7 +107,7 @@ Pretty-printed here for readability:
 
 ```json
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "generated_at": "2026-07-29T12:00:00+00:00",
   "account_status": "ok",
   "account": {
@@ -133,8 +133,6 @@ Pretty-printed here for readability:
     "days_gone": 26,
     "days_forecast": 3,
     "today_fraction": 0.15,
-    "days_until_reset": 4.0,
-    "days_elapsed": 27.0,
     "projection_runout": null,
     "non_working_today": false,
     "holidays_available": true
@@ -167,11 +165,10 @@ Pretty-printed here for readability:
 | `pace` | object or `null` | `null` whenever `account` is `null`. |
 | `pace.mode` | string | `calendar` or `workday`. |
 | `pace.allowance_per_day` | number or `null` | Flat even-budget daily rate: `limit / cycle length`. |
-| `pace.can_spend_credits` | number or `null` | Schedule-adherence balance in credits: `(days elapsed × allowance) − used`. Positive means ahead of the ideal even-pace line (banked slack); negative means over it. |
+| `pace.can_spend_credits` | number or `null` | Schedule-adherence balance in credits: `(whole days into the cycle, today included) × allowance − used`. Positive means ahead of the ideal even-pace line (banked slack); negative means over it. |
 | `pace.if_done_today_per_day` | number or `null` | Daily rate for the rest of the cycle **after today**, assuming no more spend happens today. Whole days only (tomorrow → reset). |
-| `pace.since_day_start_per_day` | number or `null` | Same shape as the live rest-of-cycle rate, but with the numerator frozen to this morning's API-usage baseline instead of the current `used` — isolates the effect of time passing from today's actual spending. `null` when no baseline is available yet. |
-| `pace.days_gone` / `.days_forecast` | integer | Whole days fully completed before today, and whole days remaining after today until reset (today itself is neither — it's the in-progress day). `days_forecast` is the denominator `if_done_today_per_day` uses. |
-| `pace.days_until_reset` / `.days_elapsed` | number | Fractional days left/elapsed in the current cycle (includes the in-progress fraction of today). |
+| `pace.since_day_start_per_day` | number or `null` | Rate for the rest of the cycle (today included, whole days), but with the numerator frozen to this morning's API-usage baseline instead of the current `used` — isolates today's actual spending from the rest of the calculation. `null` when no baseline is available yet. |
+| `pace.days_gone` / `.days_forecast` | integer | Whole days fully completed before today, and whole days remaining after today until reset (today itself is neither — it's the in-progress day). `days_forecast` is the denominator `if_done_today_per_day` uses. Every day count in `pace` is a whole number — none of these are fractional. |
 | `pace.projection_runout` | string (ISO-8601) or `null` | Projected credit-exhaustion date, if trending over. |
 | `usage` | object or `null` | `null` when there's no local spend data yet. |
 | `usage.scope` | string | `"this cycle"` when `account` is present, else `"recent"`. |

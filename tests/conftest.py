@@ -67,8 +67,6 @@ def pace_info() -> PaceInfo:
         days_gone=26,
         days_forecast=3,
         today_fraction=0.15,
-        days_until_reset=4.0,
-        days_elapsed=27.0,
         projection_runout=None,
         non_working_today=False,
         holidays_available=True,

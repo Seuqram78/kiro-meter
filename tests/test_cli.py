@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 
 _MS = 1000
 _EXIT_INDETERMINATE = 20
-_SCHEMA_VERSION = 2
+_SCHEMA_VERSION = 3
 
 
 def test_version_is_a_string() -> None:

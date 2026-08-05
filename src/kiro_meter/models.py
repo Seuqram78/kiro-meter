@@ -74,8 +74,6 @@ class PaceInfo:
     days_gone: int
     days_forecast: int
     today_fraction: float | None
-    days_until_reset: float
-    days_elapsed: float
     projection_runout: datetime | None
     non_working_today: bool
     holidays_available: bool

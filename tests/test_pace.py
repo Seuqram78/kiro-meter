@@ -22,7 +22,7 @@ _REMAINING = 36.0
 _DAYS_LEFT = 17.0
 _DAYS_GONE = 14
 _DAYS_FORECAST = 16
-_ELAPSED = 14.0
+_DAYS_INTO_CYCLE = _DAYS_GONE + 1
 _USED = 14.0
 _EXPECTED_WORKING_DAYS = 5
 
@@ -68,9 +68,9 @@ def test_allowance_and_forecast_pace_calendar() -> None:
     assert round(pace.if_done_today_per_day, _NDIGITS) == round(
         _REMAINING / _DAYS_FORECAST, _NDIGITS
     )
-    # can spend = (days elapsed * allowance) - used, banked against ideal pace
+    # can spend = (whole days into the cycle, today included) * allowance - used
     assert pace.can_spend_credits is not None
-    expected_can_spend = _ELAPSED * (_LIMIT / _CYCLE_DAYS) - _USED
+    expected_can_spend = _DAYS_INTO_CYCLE * (_LIMIT / _CYCLE_DAYS) - _USED
     assert round(pace.can_spend_credits, _NDIGITS) == round(
         expected_can_spend, _NDIGITS
     )

@@ -60,7 +60,7 @@ _EXIT_NEAR_LIMIT = 10
 _EXIT_AT_LIMIT = 11
 _EXIT_INDETERMINATE = 20
 _EXIT_ERROR = 30
-_SCHEMA_VERSION = 2
+_SCHEMA_VERSION = 3
 
 
 @dataclass(frozen=True)
@@ -395,8 +395,6 @@ def _pace_dict(pace: PaceInfo | None) -> dict[str, object] | None:
         "days_gone": pace.days_gone,
         "days_forecast": pace.days_forecast,
         "today_fraction": pace.today_fraction,
-        "days_until_reset": pace.days_until_reset,
-        "days_elapsed": pace.days_elapsed,
         "projection_runout": (
             pace.projection_runout.isoformat() if pace.projection_runout else None
         ),
