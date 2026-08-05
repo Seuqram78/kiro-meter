@@ -82,10 +82,12 @@ class PaceInfo:
 
     mode: PaceMode
     allowance_per_day: float | None
-    can_spend_per_day: float | None
+    can_spend_credits: float | None
+    if_done_today_per_day: float | None
+    since_day_start_per_day: float | None
+    days_gone: int
+    days_forecast: int
     today_fraction: float | None
-    days_until_reset: float
-    days_elapsed: float
     projection_runout: datetime | None
     non_working_today: bool
     holidays_available: bool
@@ -113,3 +115,5 @@ class Snapshot:
     account_status: AccountStatus
     pace: PaceInfo | None
     generated_at: datetime
+    today_flagged: bool = False
+    """Whether the local session-file sum for today exceeds the API-baseline diff."""

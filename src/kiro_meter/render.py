@@ -112,22 +112,15 @@ def render_snapshot(
     """
     show_local = ui is None or ui.show_local
     official: list[RenderableType] = [_account_section(snap)]
-
-    budget: list[RenderableType] = []
-    if show_local:
-        budget.append(_today_line(snap.db, snap.pace))
-        if snap.pace is not None:
-            budget.extend(_pace_lines(snap.pace))
-        if snap.db.burn_rate_per_min is not None:
-            budget.append(_burn_line(snap.db.burn_rate_per_min))
+    budget = _budget_section(snap) if show_local else []
+    table_group, row_window = (
+        _table_section(snap, ui) if show_local else ([], None)
+    )
 
     footer: list[RenderableType] = []
     if frame is not None:
         lf = live_footer if live_footer is not None else LiveFooterState()
         footer.append(_footer(snap, frame, lf))
-
-    table_group, row_window = _table_section(snap, ui) if show_local else ([], None)
-
     if ui is not None:
         footer.append(_key_hints(ui, row_window))
 
@@ -138,6 +131,18 @@ def render_snapshot(
         title_align="left",
         padding=(1, 2),
     )
+
+
+def _budget_section(snap: Snapshot) -> list[RenderableType]:
+    """Render the today/pace/burn lines shown above the usage table."""
+    budget: list[RenderableType] = [
+        _today_line(snap.db, snap.pace, today_flagged=snap.today_flagged)
+    ]
+    if snap.pace is not None:
+        budget.extend(_pace_lines(snap.pace))
+    if snap.db.burn_rate_per_min is not None:
+        budget.append(_burn_line(snap.db.burn_rate_per_min))
+    return budget
 
 
 def _table_section(
@@ -323,32 +328,65 @@ def _usage_style(pct: float) -> str:
     return "green"
 
 
-def _today_line(db: DbSnapshot, pace: PaceInfo | None) -> RenderableType:
-    """Render today's spend, with a pace bar when a target exists."""
+def _today_line(
+    db: DbSnapshot, pace: PaceInfo | None, *, today_flagged: bool
+) -> RenderableType:
+    """Render today's spend, with a pace bar when a target exists.
+
+    The figure comes from the API-usage baseline when an account is
+    available (see ``app._resolve_today``), else it falls back to the local
+    session-file sum.
+    """
+    source = "official" if pace is not None else "local"
+    flag = "  ⚠ local sum exceeds API total" if today_flagged else ""
     if pace is not None and pace.today_fraction is not None:
         filled, empty = _bar(pace.today_fraction)
         pct = pace.today_fraction * _PERCENT
+        detail = f"  {db.today_credits:.2f} cr  ({pct:.0f}% allowance, {source}){flag}"
         return Text.assemble(
             "Today ",
             (filled, "cyan"),
             (empty, _TRACK_STYLE),
-            (f"  {db.today_credits:.2f} cr  ({pct:.0f}% allowance, local)", ""),
+            (detail, ""),
         )
-    return Text(f"Today  {db.today_credits:.2f} cr  ({db.today_turns} turns, local)")
+    return Text(
+        f"Today  {db.today_credits:.2f} cr  ({db.today_turns} turns, {source}){flag}"
+    )
 
 
 def _pace_lines(pace: PaceInfo) -> list[RenderableType]:
-    """Render the allowance and can-spend pace lines."""
+    """Render the allowance, can-spend, forecast, and days-count pace lines."""
     lines: list[RenderableType] = []
     if pace.allowance_per_day is not None:
         allowance = f"Pace  allowance {pace.allowance_per_day:.2f} cr/day (even budget)"
         lines.append(Text(allowance, style="dim"))
-    if pace.can_spend_per_day is not None:
-        can_spend = (
-            f"      can spend {pace.can_spend_per_day:.2f} cr/day (rest of cycle)"
+    if pace.can_spend_credits is not None:
+        lines.append(_can_spend_line(pace.can_spend_credits))
+    if pace.if_done_today_per_day is not None:
+        if_done_today = (
+            f"      if done today {pace.if_done_today_per_day:.2f} cr/day "
+            "(rest of cycle, from tomorrow)"
         )
-        lines.append(Text(can_spend, style="dim"))
+        lines.append(Text(if_done_today, style="dim"))
+    if pace.since_day_start_per_day is not None:
+        since_day_start = (
+            f"      since day start {pace.since_day_start_per_day:.2f} cr/day "
+            "(rest of cycle, time-adjusted)"
+        )
+        lines.append(Text(since_day_start, style="dim"))
+    days = (
+        f"      {pace.days_gone} days gone, today, {pace.days_forecast} days forecast"
+    )
+    lines.append(Text(days, style="dim"))
     return lines
+
+
+def _can_spend_line(can_spend_credits: float) -> RenderableType:
+    """Render the schedule-adherence balance, styled distinctly when over pace."""
+    if can_spend_credits >= 0:
+        text = f"      can spend {can_spend_credits:.2f} cr ahead of pace"
+        return Text(text, style="dim")
+    return Text(f"      can spend {-can_spend_credits:.2f} cr over pace", style="red")
 
 
 def _burn_line(burn_rate_per_min: float) -> RenderableType:

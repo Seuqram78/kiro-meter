@@ -11,6 +11,7 @@ from zoneinfo import ZoneInfo
 import httpx
 
 from kiro_meter.app import RunContext, run_live, run_once
+from kiro_meter.baseline import DEFAULT_STATE_DB_PATH
 from kiro_meter.config import (
     CONFIG_PATH,
     load_config,
@@ -37,8 +38,7 @@ def main(argv: list[str] | None = None) -> int:
     args = _parse_args(argv)
     with httpx.Client() as client:
         cfg = _resolve_config(args, client=client)
-        local_tz = datetime.now(UTC).astimezone().tzinfo
-        tz = ZoneInfo(cfg.timezone) if cfg.timezone else local_tz
+        tz = ZoneInfo(cfg.timezone) if cfg.timezone else UTC
         holidays = (
             NagerHolidayProvider(client=client, cache_dir=CONFIG_PATH.parent)
             if cfg.workdays
@@ -50,6 +50,7 @@ def main(argv: list[str] | None = None) -> int:
             client=client,
             tz=tz,
             holidays=holidays,
+            state_db_path=DEFAULT_STATE_DB_PATH,
         )
         if args.once:
             return run_once(cfg, ctx, now=datetime.now(UTC), as_json=args.json)

@@ -21,6 +21,7 @@ from kiro_meter.account import (
     load_token,
     token_expired,
 )
+from kiro_meter.baseline import resolve_daily_baseline
 from kiro_meter.db import (
     build_db_snapshot,
     collapse_by_nesting,
@@ -29,7 +30,7 @@ from kiro_meter.db import (
 )
 from kiro_meter.interaction import LiveState, apply_key, normalize
 from kiro_meter.models import Snapshot
-from kiro_meter.pace import billing_cycle_start, compute_pace
+from kiro_meter.pace import PaceExtras, billing_cycle_start, compute_pace
 from kiro_meter.render import LiveFooterState, render_snapshot
 
 try:
@@ -59,7 +60,7 @@ _EXIT_NEAR_LIMIT = 10
 _EXIT_AT_LIMIT = 11
 _EXIT_INDETERMINATE = 20
 _EXIT_ERROR = 30
-_SCHEMA_VERSION = 1
+_SCHEMA_VERSION = 3
 
 
 @dataclass(frozen=True)
@@ -71,6 +72,7 @@ class RunContext:
     client: httpx.Client
     tz: tzinfo
     holidays: HolidayProvider | None
+    state_db_path: Path
 
 
 def resolve_account(
@@ -93,6 +95,24 @@ def resolve_account(
         return None, "error"
 
 
+def _resolve_today(
+    local_credits: float,
+    account: AccountInfo | None,
+    baseline: float | None,
+) -> tuple[float, bool]:
+    """Return (today_credits, flagged).
+
+    Prefers the API-baseline diff (`account.used - baseline`) when available;
+    falls back to the local session-file sum otherwise. `flagged` is True
+    when the local sum exceeds the API-baseline diff, signalling the two
+    sources disagree.
+    """
+    if account is None or baseline is None:
+        return local_credits, False
+    api_credits = max(account.used - baseline, 0.0)
+    return api_credits, local_credits > api_credits
+
+
 def build_snapshot(
     cfg: AppConfig,
     ctx: RunContext,
@@ -106,12 +126,29 @@ def build_snapshot(
     db = build_db_snapshot(
         load_conversations(ctx.sessions_dir), now=now, tz=ctx.tz, since=since
     )
-    pace = (
-        compute_pace(account, db, cfg, now=now, holidays=ctx.holidays)
+    baseline = (
+        resolve_daily_baseline(
+            ctx.state_db_path, now.astimezone(ctx.tz).date(), account.used
+        )
         if account is not None
         else None
     )
-    return Snapshot(db, account, account_status, pace, now)
+    today_credits, today_flagged = _resolve_today(db.today_credits, account, baseline)
+    db = replace(db, today_credits=today_credits)
+    pace = (
+        compute_pace(
+            account,
+            db,
+            cfg,
+            now=now,
+            extras=PaceExtras(
+                holidays=ctx.holidays, today_baseline=baseline, tz=ctx.tz
+            ),
+        )
+        if account is not None
+        else None
+    )
+    return Snapshot(db, account, account_status, pace, now, today_flagged=today_flagged)
 
 
 def run_once(cfg: AppConfig, ctx: RunContext, *, now: datetime, as_json: bool) -> int:
@@ -144,6 +181,7 @@ def run_live(
     account: AccountInfo | None = None
     status: AccountStatus = "disabled"
     rows: list[ConversationRow] = []
+    today_baseline: float | None = None
     last_refresh = 0.0
     fetched_at: datetime | None = None
     refreshing = False
@@ -169,6 +207,15 @@ def run_live(
                         refreshing = True
                         account, status = resolve_account(cfg, ctx, now=now)
                         rows = load_conversations(ctx.sessions_dir)
+                        today_baseline = (
+                            resolve_daily_baseline(
+                                ctx.state_db_path,
+                                now.astimezone(ctx.tz).date(),
+                                account.used,
+                            )
+                            if account is not None
+                            else None
+                        )
                         last_refresh = time.monotonic()
                         fetched_at = now_fn()
                         refreshing = False
@@ -179,13 +226,34 @@ def run_live(
                     ui = normalize(ui, max_nesting=max_folder_depth(rows))
 
                     db = _local_snapshot(rows, now, ctx.tz, account, ui.nesting)
+                    today_credits, today_flagged = _resolve_today(
+                        db.today_credits, account, today_baseline
+                    )
+                    db = replace(db, today_credits=today_credits)
                     pace = (
-                        compute_pace(account, db, cfg, now=now, holidays=ctx.holidays)
+                        compute_pace(
+                            account,
+                            db,
+                            cfg,
+                            now=now,
+                            extras=PaceExtras(
+                                holidays=ctx.holidays,
+                                today_baseline=today_baseline,
+                                tz=ctx.tz,
+                            ),
+                        )
                         if account is not None
                         else None
                     )
                     snap_time = fetched_at if fetched_at is not None else now
-                    snap = Snapshot(db, account, status, pace, snap_time)
+                    snap = Snapshot(
+                        db,
+                        account,
+                        status,
+                        pace,
+                        snap_time,
+                        today_flagged=today_flagged,
+                    )
                     seconds_until_refresh = max(
                         0.0, cfg.refresh_seconds - (time.monotonic() - last_refresh)
                     )
@@ -285,7 +353,11 @@ def _as_dict(snap: Snapshot) -> dict[str, object]:
         "generated_at": snap.generated_at.isoformat(),
         "account_status": snap.account_status,
         "account": _account_dict(snap.account),
-        "today": {"credits": snap.db.today_credits, "turns": snap.db.today_turns},
+        "today": {
+            "credits": snap.db.today_credits,
+            "turns": snap.db.today_turns,
+            "flagged": snap.today_flagged,
+        },
         "burn_rate_per_min": snap.db.burn_rate_per_min,
         "pace": _pace_dict(snap.pace),
         "usage": _usage_dict(snap.db, scoped=snap.account is not None),
@@ -317,10 +389,12 @@ def _pace_dict(pace: PaceInfo | None) -> dict[str, object] | None:
     return {
         "mode": pace.mode,
         "allowance_per_day": pace.allowance_per_day,
-        "can_spend_per_day": pace.can_spend_per_day,
+        "can_spend_credits": pace.can_spend_credits,
+        "if_done_today_per_day": pace.if_done_today_per_day,
+        "since_day_start_per_day": pace.since_day_start_per_day,
+        "days_gone": pace.days_gone,
+        "days_forecast": pace.days_forecast,
         "today_fraction": pace.today_fraction,
-        "days_until_reset": pace.days_until_reset,
-        "days_elapsed": pace.days_elapsed,
         "projection_runout": (
             pace.projection_runout.isoformat() if pace.projection_runout else None
         ),

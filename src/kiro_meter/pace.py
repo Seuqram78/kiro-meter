@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import calendar
 import json
-from datetime import date, timedelta
+from dataclasses import dataclass
+from datetime import UTC, date, timedelta
 from typing import TYPE_CHECKING, Protocol
 
 import httpx
@@ -12,13 +13,11 @@ import httpx
 from kiro_meter.models import PaceInfo
 
 if TYPE_CHECKING:
-    from datetime import datetime
+    from datetime import datetime, tzinfo
     from pathlib import Path
 
     from kiro_meter.models import AccountInfo, AppConfig, DbSnapshot, PaceMode
 
-_SECONDS_PER_DAY = 86_400.0
-_MIN_DAYS = 0.5
 _MONTHS_PER_YEAR = 12
 _FIRST_WEEKEND_DAY = 5
 _ONE_DAY = timedelta(days=1)
@@ -140,82 +139,162 @@ class NagerHolidayProvider:
         )
 
 
+@dataclass(frozen=True)
+class PaceExtras:
+    """Optional inputs to `compute_pace` beyond the core account/db/cfg/now.
+
+    Bundled so `compute_pace` stays within the argument-count limit; these two
+    are naturally paired as "extra context the caller may or may not have."
+    """
+
+    holidays: HolidayProvider | None = None
+    today_baseline: float | None = None
+    """The official `used` figure captured at the first run of the local day
+    (see `kiro_meter.baseline`). Feeds `since_day_start_per_day`; that field
+    is `None` without it."""
+    tz: tzinfo = UTC
+    """Timezone defining calendar-day boundaries - both modes count whole
+    calendar days (never fractional ones), so this decides which "today" is
+    being counted. Passing UTC here would silently shift "today" by up to a
+    day for users east of it (e.g. AU/WA)."""
+
+
+_DEFAULT_EXTRAS = PaceExtras()
+
+
 def compute_pace(
     account: AccountInfo,
     db: DbSnapshot,
     cfg: AppConfig,
     *,
     now: datetime,
-    holidays: HolidayProvider | None = None,
+    extras: PaceExtras = _DEFAULT_EXTRAS,
 ) -> PaceInfo:
     """Derive pacing numbers comparing spend against the billing cycle.
+
+    Every day count here is a whole number of calendar (or working) days -
+    "today" is always either fully gone, fully in progress, or fully ahead,
+    never a fraction of one - so the numbers stay stable for the rest of the
+    day instead of drifting every time this is called.
 
     Args:
         account: Official plan usage (source of limit, used, and reset date).
         db: Local spend snapshot (source of today's credits).
         cfg: Runtime configuration (workday mode, country/region).
         now: The current instant (timezone-aware).
-        holidays: Working-day source; required for workday mode.
+        extras: Optional holiday provider and today's API-usage baseline.
 
     Returns:
         The computed pacing figures. In calendar mode denominators are calendar
         days; in workday mode they are working days.
     """
+    holidays = extras.holidays
     remaining = max(account.limit - account.used, 0.0)
     cycle_start = billing_cycle_start(account.next_reset)
-    calendar_until = _days_between(now, account.next_reset)
-    calendar_cycle = _days_between(cycle_start, account.next_reset)
-    calendar_elapsed = _days_between(cycle_start, now)
+    today_date = now.astimezone(extras.tz).date()
+    cycle_start_date = cycle_start.astimezone(extras.tz).date()
+    reset_date = account.next_reset.astimezone(extras.tz).date()
 
     mode: PaceMode
     if cfg.workdays and holidays is not None:
         mode = "workday"
         cycle_len, days_until, non_working, available = _workday_spans(
-            cfg, holidays, now=now, cycle_start=cycle_start, reset=account.next_reset
+            cfg,
+            holidays,
+            today=today_date,
+            cycle_start=cycle_start_date,
+            reset=reset_date,
         )
     else:
         mode = "calendar"
-        cycle_len, days_until = calendar_cycle, calendar_until
+        cycle_len, days_until = _calendar_spans(
+            cycle_start_date, reset_date, today_date
+        )
         non_working, available = False, True
 
-    allowance = account.limit / cycle_len if cycle_len >= _MIN_DAYS else None
-    actual = remaining / days_until if days_until >= _MIN_DAYS else None
+    allowance = account.limit / cycle_len if cycle_len >= 1 else None
     today_fraction = db.today_credits / allowance if allowance else None
-    runout = now + timedelta(days=days_until) if actual is not None else None
+    runout = account.next_reset if days_until >= 1 else None
+
+    days_gone = max(cycle_len - days_until, 0)
+    days_forecast = max(days_until - 1, 0)
+    days_into_cycle = min(days_gone + 1, cycle_len) if cycle_len >= 1 else days_gone
+
+    can_spend_credits = (
+        days_into_cycle * allowance - account.used if allowance is not None else None
+    )
+    if_done_today_per_day = remaining / days_forecast if days_forecast >= 1 else None
+    since_day_start_per_day = _since_day_start(
+        account, extras.today_baseline, days_until
+    )
 
     return PaceInfo(
         mode=mode,
         allowance_per_day=allowance,
-        can_spend_per_day=actual,
+        can_spend_credits=can_spend_credits,
+        if_done_today_per_day=if_done_today_per_day,
+        since_day_start_per_day=since_day_start_per_day,
+        days_gone=days_gone,
+        days_forecast=days_forecast,
         today_fraction=today_fraction,
-        days_until_reset=calendar_until,
-        days_elapsed=calendar_elapsed,
         projection_runout=runout,
         non_working_today=non_working,
         holidays_available=available,
     )
 
 
+def _calendar_spans(cycle_start: date, reset: date, today: date) -> tuple[int, int]:
+    """Return (cycle_len, days_until) as whole calendar days.
+
+    Matches `_workday_spans`'s `[today, reset)` semantics: `days_until`
+    counts today itself but not the reset date, so a fresh cycle's first
+    day has `days_until == cycle_len`.
+    """
+    return (reset - cycle_start).days, (reset - today).days
+
+
+def _since_day_start(
+    account: AccountInfo, today_baseline: float | None, days_until: int
+) -> float | None:
+    """Rate for the rest of the cycle (today included) off this morning's baseline.
+
+    Same whole-day denominator `if_done_today_per_day` would use plus one
+    (today), but the numerator is frozen to this morning's baseline instead
+    of the live `used` total - isolating today's actual spending from the
+    rest of the calculation.
+    """
+    if today_baseline is None or days_until < 1:
+        return None
+    remaining_from_start = max(account.limit - today_baseline, 0.0)
+    return remaining_from_start / days_until
+
+
 def _workday_spans(
     cfg: AppConfig,
     holidays: HolidayProvider,
     *,
-    now: datetime,
-    cycle_start: datetime,
-    reset: datetime,
-) -> tuple[float, float, bool, bool]:
+    today: date,
+    cycle_start: date,
+    reset: date,
+) -> tuple[int, int, bool, bool]:
     """Return (working days in cycle, working days until reset, non_working, available).
+
+    `today`/`cycle_start`/`reset` must already be calendar dates in the
+    user's own timezone (see `compute_pace`) - public holidays and "today"
+    are local-calendar-date concepts, not UTC, so converting instants with
+    `.astimezone(tz)` before calling this is what keeps a user east of UTC
+    from getting "today" (and the whole working-day count) shifted back by
+    up to a day.
 
     Falls back to a weekends-only count if holidays cannot be fetched.
     """
     country = cfg.country or ""
-    today = now.date()
     try:
         cycle_len = holidays.working_days_between(
-            cycle_start.date(), reset.date(), country=country, region=cfg.region
+            cycle_start, reset, country=country, region=cfg.region
         )
         until = holidays.working_days_between(
-            today, reset.date(), country=country, region=cfg.region
+            today, reset, country=country, region=cfg.region
         )
         non_working = (
             holidays.working_days_between(
@@ -224,11 +303,11 @@ def _workday_spans(
             == 0
         )
     except HolidayUnavailableError:
-        cycle_len = _weekdays_between(cycle_start.date(), reset.date())
-        until = _weekdays_between(today, reset.date())
+        cycle_len = _weekdays_between(cycle_start, reset)
+        until = _weekdays_between(today, reset)
         non_working = today.weekday() >= _FIRST_WEEKEND_DAY
-        return float(cycle_len), float(until), non_working, False
-    return float(cycle_len), float(until), non_working, True
+        return cycle_len, until, non_working, False
+    return cycle_len, until, non_working, True
 
 
 def _weekdays_between(start: date, end: date) -> int:
@@ -263,8 +342,3 @@ def billing_cycle_start(reset: datetime) -> datetime:
     month = _MONTHS_PER_YEAR if reset.month == 1 else reset.month - 1
     last_day = calendar.monthrange(year, month)[1]
     return reset.replace(year=year, month=month, day=min(reset.day, last_day))
-
-
-def _days_between(start: datetime, end: datetime) -> float:
-    """Return the fractional number of days from ``start`` to ``end``."""
-    return (end - start).total_seconds() / _SECONDS_PER_DAY
