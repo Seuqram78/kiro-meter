@@ -10,9 +10,10 @@ from typing import TYPE_CHECKING
 
 import platformdirs
 
-from kiro_meter.models import ConversationRow, DbSnapshot
+from kiro_meter.models import ConversationRow, DbSnapshot, UsageRow
 
 if TYPE_CHECKING:
+    from collections.abc import Callable, Iterable
     from datetime import date, tzinfo
 
 # Still holds the kiro-cli auth token (``auth_kv``); conversation history has
@@ -36,6 +37,14 @@ _MIN_NESTING = 1
 
 FULL_NESTING = 10_000
 """Sentinel nesting level: any real path saturates to itself well below this."""
+
+MERGED_MODEL = ""
+"""Sentinel model id marking a row whose per-model rows were merged together.
+
+Safe as the empty string because ``_parse_session`` falls back to
+``"unknown"`` for a missing or empty model id, so no real usage row can ever
+carry an empty model (pinned by a test).
+"""
 
 
 def load_conversations(sessions_dir: Path) -> list[ConversationRow]:
@@ -154,27 +163,56 @@ def _local_date(updated_at_ms: int, tz: tzinfo) -> date:
     return datetime.fromtimestamp(updated_at_ms / _MS_PER_SECOND, tz=tz).date()
 
 
-def _by_folder_model(
-    rows: list[ConversationRow],
-) -> tuple[tuple[str, str, int, float], ...]:
-    """Group credits and turn counts by (folder, model), all groups descending."""
+def _aggregate(
+    rows: Iterable[UsageRow],
+    key: Callable[[UsageRow], tuple[str, str]],
+) -> tuple[UsageRow, ...]:
+    """Group usage rows by ``key``, summing turns and credits, ranked descending.
+
+    The one grouping implementation behind every breakdown the app offers
+    (per folder+model, collapsed to a nesting depth, and models merged) - they
+    differ only in the key they group on. Ties keep the order their group was
+    first seen in, since ``sorted`` is stable over an insertion-ordered dict.
+    """
     turns: dict[tuple[str, str], int] = {}
     totals: dict[tuple[str, str], float] = {}
     for row in rows:
-        key = (row.folder, row.model_id or "unknown")
-        turns[key] = turns.get(key, 0) + 1
-        totals[key] = totals.get(key, 0.0) + row.credits
+        group = key(row)
+        turns[group] = turns.get(group, 0) + row.turns
+        totals[group] = totals.get(group, 0.0) + row.credits
     ranked = sorted(totals.items(), key=lambda item: item[1], reverse=True)
     return tuple(
-        (folder, model, turns[folder, model], total)
+        UsageRow(folder, model, turns[folder, model], total)
         for (folder, model), total in ranked
     )
 
 
+def _by_folder_model(rows: list[ConversationRow]) -> tuple[UsageRow, ...]:
+    """Group credits and turn counts by (folder, model), all groups descending."""
+    return _aggregate(
+        (
+            UsageRow(row.folder, row.model_id or "unknown", 1, row.credits)
+            for row in rows
+        ),
+        key=lambda row: (row.folder, row.model),
+    )
+
+
+def merge_models(by_folder_model: tuple[UsageRow, ...]) -> tuple[UsageRow, ...]:
+    """Merge each folder's per-model rows into one row per folder.
+
+    Merged rows carry ``MERGED_MODEL`` in place of a model id. Apply this
+    *after* ``collapse_by_nesting`` when both are active, so models are merged
+    within folders that are already grouped, never across folders that haven't
+    been grouped together yet.
+    """
+    return _aggregate(by_folder_model, key=lambda row: (row.folder, MERGED_MODEL))
+
+
 def collapse_by_nesting(
-    by_folder_model: tuple[tuple[str, str, int, float], ...],
+    by_folder_model: tuple[UsageRow, ...],
     nesting: int,
-) -> tuple[tuple[str, str, int, float], ...]:
+) -> tuple[UsageRow, ...]:
     """Re-group an already-aggregated folder/model breakdown to a coarser depth.
 
     Collapses each folder to its leading ``nesting`` path segments, root
@@ -187,16 +225,9 @@ def collapse_by_nesting(
     same key have their turns/credits summed; distinct models at the same
     collapsed folder remain separate rows.
     """
-    turns: dict[tuple[str, str], int] = {}
-    totals: dict[tuple[str, str], float] = {}
-    for folder, model, turn_count, credit_total in by_folder_model:
-        key = (_collapse_folder(folder, nesting), model)
-        turns[key] = turns.get(key, 0) + turn_count
-        totals[key] = totals.get(key, 0.0) + credit_total
-    ranked = sorted(totals.items(), key=lambda item: item[1], reverse=True)
-    return tuple(
-        (folder, model, turns[folder, model], total)
-        for (folder, model), total in ranked
+    return _aggregate(
+        by_folder_model,
+        key=lambda row: (_collapse_folder(row.folder, nesting), row.model),
     )
 
 

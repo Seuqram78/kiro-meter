@@ -2,13 +2,25 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 
 from rich.console import Console
 
 from kiro_meter.interaction import LiveState
-from kiro_meter.models import AppConfig, DbSnapshot, Snapshot
-from kiro_meter.render import _VISIBLE_ROWS, render_snapshot
+from kiro_meter.models import AppConfig, DbSnapshot, Snapshot, UsageRow
+
+if TYPE_CHECKING:
+    from rich.table import Table
+from kiro_meter.render import (
+    _SORT_COLUMN_STYLE,
+    _STRIPE_STYLE,
+    _VISIBLE_ROWS,
+    TableView,
+    _usage_table,
+    render_snapshot,
+)
 from tests.conftest import account_info as _account
 from tests.conftest import db_snapshot as _db
 from tests.conftest import pace_info as _pace
@@ -30,6 +42,49 @@ def test_official_gauge_rendered_when_account_present() -> None:
     assert "11.21" in text
     assert "50" in text
     assert "official" in text.lower()
+
+
+def test_pace_lines_render_forecast_and_days() -> None:
+    """The Pace block shows if-done-today, since-day-start, and the days count."""
+    snap = Snapshot(_db(), _account(), "ok", _pace(), _NOW)
+    text = _render(snap)
+    assert "if done today" in text
+    assert "since day start" in text
+    assert "days gone" in text
+    assert "days forecast" in text
+
+
+def test_can_spend_ahead_of_pace_is_not_styled_as_over() -> None:
+    """A positive can_spend_credits reads as being ahead of pace."""
+    pace = replace(_pace(), can_spend_credits=11.37)
+    snap = Snapshot(_db(), _account(), "ok", pace, _NOW)
+    text = _render(snap)
+    assert "ahead of pace" in text
+    assert "over pace" not in text
+
+
+def test_can_spend_negative_reads_as_over_pace() -> None:
+    """A negative can_spend_credits reads as being over pace, sign stripped."""
+    pace = replace(_pace(), can_spend_credits=-11.37)
+    snap = Snapshot(_db(), _account(), "ok", pace, _NOW)
+    text = _render(snap)
+    assert "over pace" in text
+    assert "11.37" in text
+    assert "-11.37" not in text
+
+
+def test_today_flagged_shows_warning_marker() -> None:
+    """A flagged Today line warns that the local sum exceeds the API total."""
+    snap = Snapshot(_db(), _account(), "ok", _pace(), _NOW, today_flagged=True)
+    text = _render(snap)
+    assert "exceeds api total" in text.lower()
+
+
+def test_today_not_flagged_has_no_warning_marker() -> None:
+    """A non-flagged snapshot's Today line has no warning marker."""
+    snap = Snapshot(_db(), _account(), "ok", _pace(), _NOW, today_flagged=False)
+    text = _render(snap)
+    assert "exceeds" not in text.lower()
 
 
 def test_usage_table_aggregates_folder_and_model() -> None:
@@ -107,7 +162,9 @@ _MANY_ROWS = 20
 
 def _db_many(count: int) -> DbSnapshot:
     """A DbSnapshot with `count` distinct, descending-credit folder rows."""
-    rows = tuple((f"/proj-{i}", "haiku-4.5", 1, float(count - i)) for i in range(count))
+    rows = tuple(
+        UsageRow(f"/proj-{i}", "haiku-4.5", 1, float(count - i)) for i in range(count)
+    )
     return DbSnapshot(
         today_credits=0.31,
         today_turns=18,
@@ -256,8 +313,10 @@ def _db_mixed_depth() -> DbSnapshot:
         session_turns=6,
         burn_rate_per_min=0.02,
         by_folder_model=(
-            ("/home/a/b/c", "sonnet-4.5", 4, 0.05),  # depth 4, alphabetically first
-            ("/home/z", "haiku-4.5", 2, 0.02),  # depth 2, alphabetically last
+            UsageRow(
+                "/home/a/b/c", "sonnet-4.5", 4, 0.05
+            ),  # depth 4, alphabetically first
+            UsageRow("/home/z", "haiku-4.5", 2, 0.02),  # depth 2, alphabetically last
         ),
         recent=(),
         approx=True,
@@ -314,7 +373,7 @@ def test_folder_column_is_not_truncated_on_wide_terminal() -> None:
         session_credits=0.12,
         session_turns=6,
         burn_rate_per_min=0.02,
-        by_folder_model=((long_folder, "sonnet-4.5", 8, 0.21),),
+        by_folder_model=(UsageRow(long_folder, "sonnet-4.5", 8, 0.21),),
         recent=(),
         approx=True,
     )
@@ -323,3 +382,192 @@ def test_folder_column_is_not_truncated_on_wide_terminal() -> None:
     console.print(render_snapshot(snap, AppConfig()))
     text = console.export_text()
     assert long_folder in text
+
+
+def _merged_db() -> DbSnapshot:
+    """Two folders, one of them split across two models."""
+    return DbSnapshot(
+        today_credits=0.31,
+        today_turns=18,
+        session_credits=0.12,
+        session_turns=6,
+        burn_rate_per_min=0.02,
+        by_folder_model=(
+            UsageRow("/home/me/proj-a", "sonnet-4.5", 8, 0.21),
+            UsageRow("/home/me/proj-a", "haiku-4.5", 4, 0.09),
+            UsageRow("/home/me/proj-b", "haiku-4.5", 12, 0.10),
+        ),
+        recent=(),
+        approx=True,
+    )
+
+
+def _table_of(
+    db: DbSnapshot,
+    *,
+    row_window: tuple[int, int, int] | None = None,
+    **view: object,
+) -> Table:
+    """Build the usage table directly, to inspect its columns and row styles."""
+    return _usage_table(
+        db.by_folder_model,
+        scoped=True,
+        row_window=row_window,
+        view=TableView(**view),
+    )
+
+
+def _row_cells(table: Table) -> list[list[object]]:
+    """Every row's cells, as a list per row."""
+    return [
+        list(row)
+        for row in zip(*(list(col.cells) for col in table.columns), strict=True)
+    ]
+
+
+def test_model_column_is_omitted_when_models_are_merged() -> None:
+    """Folder-only view drops the model column instead of showing it blank."""
+    headers = [col.header for col in _table_of(_merged_db(), by_model=False).columns]
+    assert not any("model" in str(header) for header in headers)
+    assert any("model" in str(col.header) for col in _table_of(_merged_db()).columns)
+
+
+def test_merged_view_shows_one_summed_row_per_folder() -> None:
+    """Each folder appears once, with its per-model turns and credits summed."""
+    snap = Snapshot(_merged_db(), _account(), "ok", _pace(), _NOW)
+    text, _ = _render_windowed(snap, ui=LiveState(by_model=False))
+    rows = [line for line in text.splitlines() if "proj-a" in line]
+    assert len(rows) == 1
+    assert "0.30" in rows[0]  # 0.21 + 0.09
+    assert "12" in rows[0]  # 8 + 4 turns
+    assert "sonnet-4.5" not in text
+
+
+def test_per_model_rows_are_restored_when_the_breakdown_is_on() -> None:
+    """The default view keeps each model's own row and values."""
+    snap = Snapshot(_merged_db(), _account(), "ok", _pace(), _NOW)
+    text, _ = _render_windowed(snap, ui=LiveState(by_model=True))
+    assert "sonnet-4.5" in text
+    assert "0.21" in text
+    assert "0.09" in text
+
+
+def test_every_row_has_the_same_cell_count_as_the_header() -> None:
+    """Columns and row cells come from one decision, in both breakdown modes."""
+    for by_model in (True, False):
+        table = _table_of(_merged_db(), by_model=by_model)
+        widths = {len(cells) for cells in _row_cells(table)}
+        assert widths == {len(table.columns)}
+
+
+def test_data_rows_alternate_stripes_by_absolute_position() -> None:
+    """Striping follows the row's position in the whole table, not the window."""
+    db = _db_many(_MANY_ROWS)
+    unscrolled = _table_of(db, row_window=(0, 4, _MANY_ROWS))
+    scrolled = _table_of(db, row_window=(1, 5, _MANY_ROWS))
+    first_four = [row.style for row in unscrolled.rows[:4]]
+    assert _STRIPE_STYLE in str(first_four[1])
+    assert first_four[0] != first_four[1]
+    assert first_four[0] == first_four[2]
+    assert [row.style for row in scrolled.rows[:3]] == first_four[1:4]
+
+
+def test_spacer_and_total_rows_are_not_striped() -> None:
+    """The stripe only marks data rows, so the Total row still stands apart."""
+    table = _table_of(_merged_db())
+    spacer, total = table.rows[-2], table.rows[-1]
+    assert _STRIPE_STYLE not in str(spacer.style)
+    assert "bold" in str(total.style)
+    assert _STRIPE_STYLE not in str(total.style)
+
+
+def test_active_sort_column_is_highlighted() -> None:
+    """The sorted column is styled, and the other sortable one isn't."""
+    by_cr = {col.header: col for col in _table_of(_merged_db(), sort="cr_desc").columns}
+    cr_col = next(col for header, col in by_cr.items() if "cr" in str(header))
+    folder_col = next(col for header, col in by_cr.items() if "folder" in str(header))
+    assert _SORT_COLUMN_STYLE in str(cr_col.style)
+    assert _SORT_COLUMN_STYLE in str(cr_col.header_style)
+    assert _SORT_COLUMN_STYLE not in str(folder_col.style)
+
+
+def test_highlight_follows_the_sort_to_the_folder_column() -> None:
+    """Sorting by folder moves the highlight off the cr column."""
+    cols = {
+        str(col.header): col
+        for col in _table_of(_merged_db(), sort="folder_asc").columns
+    }
+    folder_col = next(col for header, col in cols.items() if "folder" in header)
+    cr_col = next(col for header, col in cols.items() if "cr" in header)
+    assert _SORT_COLUMN_STYLE in str(folder_col.style)
+    assert _SORT_COLUMN_STYLE not in str(cr_col.style)
+
+
+def test_total_row_keeps_the_sort_highlight_distinct_from_its_own_emphasis() -> None:
+    """The Total row's sorted cell reads as sorted, not just as bold like its peers."""
+    table = _table_of(_merged_db(), sort="cr_desc")
+    cr_col = next(col for col in table.columns if "cr" in str(col.header))
+    total_style = str(table.rows[-1].style)
+    assert _SORT_COLUMN_STYLE not in total_style  # Total's own emphasis is plain bold
+    assert _SORT_COLUMN_STYLE in str(cr_col.style)  # ...the column adds the highlight
+
+
+def test_single_row_table_renders() -> None:
+    """One data row: nothing to alternate against, and nothing breaks."""
+    snap = Snapshot(_db_many(1), _account(), "ok", _pace(), _NOW)
+    text, _ = _render_windowed(snap, ui=LiveState())
+    assert "proj-0" in text
+
+
+def test_empty_table_with_breakdown_toggled_off_renders() -> None:
+    """No usage rows at all, models merged: the table section is simply skipped."""
+    db = DbSnapshot(0.0, 0, 0.0, 0, None, (), (), approx=True)
+    snap = Snapshot(db, _account(), "ok", _pace(), _NOW)
+    text, _ = _render_windowed(snap, ui=LiveState(by_model=False))
+    assert "Total" not in text
+
+
+def test_key_hints_include_the_model_toggle_and_wrap_at_eighty_columns() -> None:
+    """The [m] hint is present and the hint line still wraps rather than truncates."""
+    snap = Snapshot(_merged_db(), _account(), "ok", _pace(), _NOW)
+    text, _ = _render_windowed(snap, ui=LiveState(sort="folder_desc"))
+    assert "[m]" in text
+    assert "model" in text
+
+
+def _ansi(style: str) -> str:
+    r"""The full ANSI SGR escape rich emits for a style string.
+
+    E.g. ``"\x1b[1;36m"`` for ``"cyan bold"`` or ``"\x1b[7m"`` for
+    ``"reverse"`` - generic over truecolor, named-color, and attribute-only
+    styles alike. Returns the whole escape (not just its body) so a short
+    numeric code like ``"7"`` can't false-positive match against an
+    unrelated digit elsewhere in the rendered text.
+    """
+    console = Console(width=10, record=True)
+    console.print("x", style=style)
+    rendered = console.export_text(styles=True)
+    start = rendered.index("\x1b[")
+    end = rendered.index("m", start) + 1
+    return rendered[start:end]
+
+
+def test_one_shot_output_has_no_stripes_or_sort_highlight() -> None:
+    """Striping and the sort highlight are live-view only; one-shot is untouched."""
+    snap = Snapshot(_merged_db(), _account(), "ok", _pace(), _NOW)
+    console = Console(width=_CONSOLE_WIDTH, record=True)
+    console.print(render_snapshot(snap, AppConfig()))
+    styled = console.export_text(styles=True)
+    assert _ansi(_STRIPE_STYLE) not in styled
+    assert _ansi(_SORT_COLUMN_STYLE) not in styled
+    assert "cr ↓" in styled  # the pre-existing header arrow still shows
+
+
+def test_live_view_output_does_stripe_and_highlight() -> None:
+    """The same data in the live view carries both new visual cues."""
+    snap = Snapshot(_merged_db(), _account(), "ok", _pace(), _NOW)
+    console = Console(width=_CONSOLE_WIDTH, record=True)
+    console.print(render_snapshot(snap, AppConfig(), frame=0, ui=LiveState()))
+    styled = console.export_text(styles=True)
+    assert _ansi(_STRIPE_STYLE) in styled
+    assert _ansi(_SORT_COLUMN_STYLE) in styled

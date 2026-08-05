@@ -114,3 +114,45 @@ def test_s_cycles_through_sort_states() -> None:
     assert state.sort == "folder_desc"
     state = apply_key(state, "s")
     assert state.sort == "cr_desc"
+
+
+def test_m_toggles_model_breakdown() -> None:
+    """'m' merges the per-model rows, then breaks them out again."""
+    merged = apply_key(LiveState(by_model=True), "m")
+    assert merged.by_model is False
+    assert apply_key(merged, "m").by_model is True
+
+
+def test_m_leaves_the_rest_of_the_state_alone() -> None:
+    """Toggling the breakdown doesn't disturb nesting, sort or local visibility."""
+    state = LiveState(nesting=_STARTING_NESTING, sort="folder_asc", show_local=False)
+    toggled = apply_key(state, "m")
+    assert (toggled.nesting, toggled.sort, toggled.show_local) == (
+        state.nesting,
+        state.sort,
+        state.show_local,
+    )
+
+
+def test_m_resets_scroll_to_the_first_row() -> None:
+    """The row count changes under the scroll offset, so scrolling restarts."""
+    assert apply_key(LiveState(scroll=_STARTING_SCROLL), "m").scroll == 0
+
+
+def test_s_resets_scroll_to_the_first_row() -> None:
+    """Re-sorting reorders rows under the scroll offset, so scrolling restarts."""
+    state = apply_key(LiveState(scroll=_STARTING_SCROLL), "s")
+    assert state.scroll == 0
+    assert state.sort == "cr_asc"
+
+
+def test_nesting_keys_reset_scroll_to_the_first_row() -> None:
+    """Re-nesting changes the row count, so scrolling restarts either way."""
+    left = apply_key(
+        LiveState(nesting=_STARTING_NESTING, scroll=_STARTING_SCROLL), readchar.key.LEFT
+    )
+    right = apply_key(
+        LiveState(nesting=_STARTING_NESTING, scroll=_STARTING_SCROLL),
+        readchar.key.RIGHT,
+    )
+    assert (left.scroll, right.scroll) == (0, 0)

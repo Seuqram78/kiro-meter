@@ -7,10 +7,12 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from kiro_meter.db import (
+    MERGED_MODEL,
     build_db_snapshot,
     collapse_by_nesting,
     load_conversations,
     max_folder_depth,
+    merge_models,
 )
 from kiro_meter.models import ConversationRow
 
@@ -34,6 +36,10 @@ _NDIGITS = 2
 _EXPECTED_AUTO_MODEL_CREDIT = 0.04
 _DEPTH_A_B_C = 3
 _DEPTH_A_B_C_D = 4
+_MERGED_TURNS = 2
+_MERGED_CREDITS = 0.07
+_ANCESTOR_TURNS = 3
+_ANCESTOR_CREDITS = 0.60
 
 
 def _ms(dt: datetime) -> int:
@@ -247,3 +253,118 @@ def test_max_folder_depth_is_the_deepest_row() -> None:
         ConversationRow("id3", "/a/b", "m", 0.01, 0),
     ]
     assert max_folder_depth(rows) == _DEPTH_A_B_C_D
+
+
+def test_usage_rows_expose_named_fields(
+    make_sessions: Callable[[list[ConversationSpec]], Path],
+) -> None:
+    """Aggregated usage rows are readable by field name, not just by index."""
+    sessions_dir = make_sessions([("c1", "/proj-a", "haiku", 0.02, _ms(_NOW))])
+    row = build_db_snapshot(
+        load_conversations(sessions_dir), now=_NOW, tz=UTC
+    ).by_folder_model[0]
+    assert row.folder == "/proj-a"
+    assert row.model == "haiku"
+    assert row.turns == 1
+    assert row.credits == _EXPECTED_ONE_CREDIT
+
+
+def test_merge_models_sums_credits_and_turns_per_folder(
+    make_sessions: Callable[[list[ConversationSpec]], Path],
+) -> None:
+    """Merging models leaves one row per folder, with per-model values summed."""
+    sessions_dir = make_sessions(
+        [
+            ("c1", "/proj-a", "haiku", 0.02, _ms(_NOW)),
+            ("c2", "/proj-a", "sonnet", 0.05, _ms(_NOW)),
+            ("c3", "/proj-b", "haiku", 0.01, _ms(_NOW)),
+        ],
+    )
+    by_folder_model = build_db_snapshot(
+        load_conversations(sessions_dir), now=_NOW, tz=UTC
+    ).by_folder_model
+    merged = merge_models(by_folder_model)
+    assert [row.folder for row in merged] == ["/proj-a", "/proj-b"]
+    assert merged[0].turns == _MERGED_TURNS
+    assert round(merged[0].credits, _NDIGITS) == _MERGED_CREDITS
+
+
+def test_merge_models_marks_rows_with_the_merged_sentinel(
+    make_sessions: Callable[[list[ConversationSpec]], Path],
+) -> None:
+    """Merged rows carry the merged-model sentinel instead of a real model id."""
+    sessions_dir = make_sessions([("c1", "/proj-a", "haiku", 0.02, _ms(_NOW))])
+    by_folder_model = build_db_snapshot(
+        load_conversations(sessions_dir), now=_NOW, tz=UTC
+    ).by_folder_model
+    assert merge_models(by_folder_model)[0].model == MERGED_MODEL
+
+
+def test_merged_sentinel_never_collides_with_a_real_model_id(
+    make_sessions: Callable[[list[ConversationSpec]], Path],
+) -> None:
+    """No parsed conversation, even one with no model info, yields the sentinel."""
+    sessions_dir = make_sessions(
+        [
+            ("c1", "/proj-a", "haiku", 0.02, _ms(_NOW)),
+            ("c2", "/proj-a", "", 0.02, _ms(_NOW)),
+        ],
+    )
+    session = {
+        "session_id": "auto-session",
+        "cwd": "/proj-auto",
+        "updated_at": "2026-07-28T12:00:00.000000Z",
+        "session_state": {"rts_model_state": {"model_info": None}},
+    }
+    (sessions_dir / "auto-session.json").write_text(json.dumps(session))
+    by_folder_model = build_db_snapshot(
+        load_conversations(sessions_dir), now=_NOW, tz=UTC
+    ).by_folder_model
+    assert by_folder_model
+    assert all(row.model != MERGED_MODEL for row in by_folder_model)
+
+
+def test_merge_models_after_collapse_sums_the_whole_ancestor(
+    make_sessions: Callable[[list[ConversationSpec]], Path],
+) -> None:
+    """A collapsed ancestor merges every folder+model that collapsed into it."""
+    sessions_dir = make_sessions(
+        [
+            ("c1", "/home/team/alice/proj", "haiku", 0.10, _ms(_NOW)),
+            ("c2", "/home/team/bob/proj", "haiku", 0.20, _ms(_NOW)),
+            ("c3", "/home/team/bob/proj", "sonnet", 0.30, _ms(_NOW)),
+        ],
+    )
+    by_folder_model = build_db_snapshot(
+        load_conversations(sessions_dir), now=_NOW, tz=UTC
+    ).by_folder_model
+    merged = merge_models(collapse_by_nesting(by_folder_model, 2))
+    assert len(merged) == 1
+    assert merged[0].folder == "/home/team"
+    assert merged[0].turns == _ANCESTOR_TURNS
+    assert round(merged[0].credits, _NDIGITS) == _ANCESTOR_CREDITS
+
+
+def test_merge_models_keeps_tied_folders_in_prior_order(
+    make_sessions: Callable[[list[ConversationSpec]], Path],
+) -> None:
+    """Rows with equal credit totals keep the order they arrived in."""
+    sessions_dir = make_sessions(
+        [
+            ("c1", "/proj-a", "haiku", 0.02, _ms(_NOW)),
+            ("c2", "/proj-b", "haiku", 0.02, _ms(_NOW)),
+        ],
+    )
+    by_folder_model = build_db_snapshot(
+        load_conversations(sessions_dir), now=_NOW, tz=UTC
+    ).by_folder_model
+    prior = [row.folder for row in by_folder_model]
+    assert [row.folder for row in merge_models(by_folder_model)] == prior
+    assert [row.folder for row in merge_models(tuple(reversed(by_folder_model)))] == (
+        list(reversed(prior))
+    )
+
+
+def test_merge_models_on_empty_input_is_empty() -> None:
+    """Merging with no rows at all is empty, not an error."""
+    assert merge_models(()) == ()

@@ -11,7 +11,7 @@ from kiro_meter.models import Snapshot
 from tests.conftest import account_info, db_snapshot, pace_info
 
 _NOW = datetime(2026, 7, 28, 12, 0, tzinfo=UTC)
-_SCHEMA_VERSION = 1
+_SCHEMA_VERSION = 3
 _EXPECTED_TOTAL_CREDITS = 0.31
 _EXPECTED_TOTAL_TURNS = 20
 
@@ -28,7 +28,14 @@ def test_full_snapshot_has_every_nested_object() -> None:
     assert data["account"]["tier"] == "KIRO FREE"
     assert data["account"]["used"] == account_info().used
     assert data["pace"]["mode"] == "calendar"
-    assert data["today"] == {"credits": 0.31, "turns": 18}
+    assert data["pace"]["can_spend_credits"] == pace_info().can_spend_credits
+    assert data["pace"]["if_done_today_per_day"] == pace_info().if_done_today_per_day
+    assert (
+        data["pace"]["since_day_start_per_day"] == pace_info().since_day_start_per_day
+    )
+    assert data["pace"]["days_gone"] == pace_info().days_gone
+    assert data["pace"]["days_forecast"] == pace_info().days_forecast
+    assert data["today"] == {"credits": 0.31, "turns": 18, "flagged": False}
     assert data["usage"]["scope"] == "this cycle"
     assert data["usage"]["by_folder_model"] == [
         ["/home/me/proj-a", "sonnet-4.5", 8, 0.21],
@@ -82,3 +89,12 @@ def test_projection_runout_none_inside_populated_pace() -> None:
 def test_full_snapshot_is_json_serialisable() -> None:
     """The dict never leaks a non-primitive (e.g. an un-isoformatted datetime)."""
     json.dumps(_as_dict(_full_snapshot()))
+
+
+def test_today_flagged_is_surfaced() -> None:
+    """A flagged snapshot reports flagged: true in the today object."""
+    snap = Snapshot(
+        db_snapshot(), account_info(), "ok", pace_info(), _NOW, today_flagged=True
+    )
+    data = _as_dict(snap)
+    assert data["today"]["flagged"] is True
