@@ -32,17 +32,20 @@ _SCANNER_WIDTH = 10
 _USAGE_BAR_WIDTH = 16
 _PCT_NEAR_LIMIT = 75.0
 _PCT_AT_LIMIT = 100.0
-# A truecolor hex, not a named/8-bit color: named ANSI colors (incl. "dim")
-# are palette indices, and terminal themes commonly remap the 256-color
-# greyscale ramp to a tinted shade - on the reporting terminal that turned
-# bar tracks into a near-black/olive checkerboard. A #rrggbb triplet is sent
-# as a direct 24-bit RGB escape, which themes can't remap.
-_TRACK_STYLE = "#6c6c6c"
-# Same reasoning as _TRACK_STYLE: truecolor hex, never a named/8-bit colour.
-# The stripe is a background only and the sort highlight a foreground only, so
-# the two combine on a sorted cell of a striped row without either being lost.
-_STRIPE_STYLE = "on #262626"
-_SORT_COLUMN_STYLE = "#87d7ff"
+# Named ANSI colors, not truecolor hex: a fixed #rrggbb triplet looks the
+# same regardless of the terminal's light/dark profile, which reads fine on
+# whichever mode it was tuned against and badly on the other (confirmed with
+# kiro-meter's own light theme - the truecolor stripe was unreadable). Named
+# colors are palette indices the terminal profile remaps for us, the same
+# approach lazygit's default theme uses throughout.
+_TRACK_STYLE = "bright_black"
+# Not "reverse": it swaps each character's own foreground/background
+# individually, so it collided with the share column's own cyan bar - a
+# reversed cyan block warped the bar into a broken staircase instead of a
+# clean stripe. A background-only style leaves already-colored cells (the
+# bar) alone and just tints everything behind them.
+_STRIPE_STYLE = "on bright_black"
+_SORT_COLUMN_STYLE = "cyan bold"
 _LOGIN_HINT = "Kiro session expired - run kiro-cli (or kiro-cli user login) to refresh."
 _KEY_BINDINGS = (
     ("↑↓", "scroll"),
@@ -113,9 +116,7 @@ def render_snapshot(
     show_local = ui is None or ui.show_local
     official: list[RenderableType] = [_account_section(snap)]
     budget = _budget_section(snap) if show_local else []
-    table_group, row_window = (
-        _table_section(snap, ui) if show_local else ([], None)
-    )
+    table_group, row_window = _table_section(snap, ui) if show_local else ([], None)
 
     footer: list[RenderableType] = []
     if frame is not None:
@@ -209,17 +210,17 @@ def _key_hints(
         start, end, total = row_window
         if total:
             state_parts.append(f"rows {start + 1}-{end} of {total}")
-    text = Text(" · ".join(state_parts), style="dim")
-    text.append(" │ ", style="dim")
+    text = Text(" · ".join(state_parts), style="italic")
+    text.append(" │ ", style="italic")
     for i, (key, label) in enumerate(_KEY_BINDINGS):
         if i:
             text.append(" ")
         text.append(f"[{key}]", style="bold cyan")
-        text.append(f" {label}", style="dim")
+        text.append(f" {label}", style="italic")
         if key == "s":
-            text.append(f" ({_SORT_LABEL[ui.sort]})", style="dim")
+            text.append(f" ({_SORT_LABEL[ui.sort]})", style="italic")
         if key == "m":
-            text.append(f" ({_BREAKDOWN_LABEL[ui.by_model]})", style="dim")
+            text.append(f" ({_BREAKDOWN_LABEL[ui.by_model]})", style="italic")
     return text
 
 
@@ -260,23 +261,23 @@ def _footer(
         return Text.assemble(
             ("● ", "bold green"),
             ("live", "green"),
-            ("   ", "dim"),
+            ("   ", "italic"),
             (spinner, "bold cyan"),
-            (" refreshing…", "dim"),
-            (f"   updated {updated}", "dim"),
+            (" refreshing…", "italic"),
+            (f"   updated {updated}", "italic"),
         )
     pos = _scanner_position(frame, _SCANNER_WIDTH)
     secs = int(live.seconds_until_refresh)
     return Text.assemble(
         ("● ", "bold green"),
         ("live", "green"),
-        ("   next in ", "dim"),
+        ("   next in ", "italic"),
         (f"{secs}s", "bold cyan"),
-        ("  ", "dim"),
-        ("·" * pos, "dim"),
+        ("  ", "italic"),
+        ("·" * pos, "italic"),
         ("●", "bold cyan"),
-        ("·" * (_SCANNER_WIDTH - pos - 1), "dim"),
-        (f"   updated {updated}", "dim"),
+        ("·" * (_SCANNER_WIDTH - pos - 1), "italic"),
+        (f"   updated {updated}", "italic"),
     )
 
 
@@ -299,7 +300,7 @@ def _account_section(snap: Snapshot) -> RenderableType:
     if snap.account_status == "needs_login":
         return Text(_LOGIN_HINT, style="yellow")
     if snap.account is None:
-        return Text("Plan: official limit unavailable", style="dim")
+        return Text("Plan: official limit unavailable", style="italic")
     return _plan_gauge(snap.account)
 
 
@@ -315,7 +316,7 @@ def _plan_gauge(account: AccountInfo) -> RenderableType:
         (empty, _TRACK_STYLE),
         (f"  {account.used:.2f} / {account.limit:.2f} cr  ", ""),
         (f"{pct:.0f}%\n", f"bold {style}"),
-        (f"      resets {reset} (official)", "dim"),
+        (f"      resets {reset} (official)", "italic"),
     )
 
 
@@ -359,7 +360,7 @@ def _pace_lines(pace: PaceInfo) -> list[RenderableType]:
     lines: list[RenderableType] = []
     if pace.allowance_per_day is not None:
         allowance = f"Pace  allowance {pace.allowance_per_day:.2f} cr/day (even budget)"
-        lines.append(Text(allowance, style="dim"))
+        lines.append(Text(allowance, style="italic"))
     if pace.can_spend_credits is not None:
         lines.append(_can_spend_line(pace.can_spend_credits))
     if pace.if_done_today_per_day is not None:
@@ -367,17 +368,17 @@ def _pace_lines(pace: PaceInfo) -> list[RenderableType]:
             f"      if done today {pace.if_done_today_per_day:.2f} cr/day "
             "(rest of cycle, from tomorrow)"
         )
-        lines.append(Text(if_done_today, style="dim"))
+        lines.append(Text(if_done_today, style="italic"))
     if pace.since_day_start_per_day is not None:
         since_day_start = (
             f"      since day start {pace.since_day_start_per_day:.2f} cr/day "
             "(rest of cycle, time-adjusted)"
         )
-        lines.append(Text(since_day_start, style="dim"))
+        lines.append(Text(since_day_start, style="italic"))
     days = (
         f"      {pace.days_gone} days gone, today, {pace.days_forecast} days forecast"
     )
-    lines.append(Text(days, style="dim"))
+    lines.append(Text(days, style="italic"))
     return lines
 
 
@@ -385,13 +386,13 @@ def _can_spend_line(can_spend_credits: float) -> RenderableType:
     """Render the schedule-adherence balance, styled distinctly when over pace."""
     if can_spend_credits >= 0:
         text = f"      can spend {can_spend_credits:.2f} cr ahead of pace"
-        return Text(text, style="dim")
+        return Text(text, style="italic")
     return Text(f"      can spend {-can_spend_credits:.2f} cr over pace", style="red")
 
 
 def _burn_line(burn_rate_per_min: float) -> RenderableType:
     """Render the recent burn rate."""
-    return Text(f"Burn  {burn_rate_per_min:.3f} cr/min (local)", style="dim")
+    return Text(f"Burn  {burn_rate_per_min:.3f} cr/min (local)", style="italic")
 
 
 def _column_header(base: str, sort: TableSort, asc: TableSort, desc: TableSort) -> str:
@@ -443,15 +444,15 @@ _SORT_COLUMN: dict[str, str] = {
 }
 _COLUMN_OPTIONS: dict[str, dict[str, object]] = {
     "folder": {"overflow": "fold", "ratio": 3},
-    "model": {"no_wrap": True, "style": "dim"},
-    "share": {"no_wrap": True, "style": "dim"},
+    "model": {"no_wrap": True, "style": "italic"},
+    "share": {"no_wrap": True, "style": "italic"},
     # Padding column: the secondary absorber for any residual width `expand`
     # adds once the folder column (ratio=3) has taken its share - keeps
     # model/bar tight on the left and cr/turns tight against the right edge,
     # at any terminal width.
     "pad": {"ratio": 1},
     "cr": {"justify": "right"},
-    "turns": {"justify": "right", "style": "dim"},
+    "turns": {"justify": "right", "style": "italic"},
 }
 
 
@@ -543,7 +544,7 @@ def _usage_table(
     table = Table(
         title=f"Usage by {grouping} ({scope})",
         title_justify="left",
-        title_style="dim",
+        title_style="italic",
         box=None,
         pad_edge=False,
         padding=(0, 2, 0, 0),

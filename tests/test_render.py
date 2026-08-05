@@ -536,9 +536,20 @@ def test_key_hints_include_the_model_toggle_and_wrap_at_eighty_columns() -> None
 
 
 def _ansi(style: str) -> str:
-    """The ANSI colour body rich emits for a truecolor style like ``#262626``."""
-    red, green, blue = (int(style[-6:][i : i + 2], 16) for i in (0, 2, 4))
-    return f"{red};{green};{blue}"
+    r"""The full ANSI SGR escape rich emits for a style string.
+
+    E.g. ``"\x1b[1;36m"`` for ``"cyan bold"`` or ``"\x1b[7m"`` for
+    ``"reverse"`` - generic over truecolor, named-color, and attribute-only
+    styles alike. Returns the whole escape (not just its body) so a short
+    numeric code like ``"7"`` can't false-positive match against an
+    unrelated digit elsewhere in the rendered text.
+    """
+    console = Console(width=10, record=True)
+    console.print("x", style=style)
+    rendered = console.export_text(styles=True)
+    start = rendered.index("\x1b[")
+    end = rendered.index("m", start) + 1
+    return rendered[start:end]
 
 
 def test_one_shot_output_has_no_stripes_or_sort_highlight() -> None:
