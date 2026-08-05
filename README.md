@@ -86,7 +86,7 @@ kiro-meter --no-account    # local data only; skip the official-limit call
 | `--json` | Emit the snapshot as JSON (implies `--once`) — see [JSON schema](#json-schema---json) below. |
 | `--no-account` | Skip the account call; render local spend only. |
 | `--refresh N` | Live refresh interval in seconds. |
-| `--timezone TZ` | Timezone for the "today" boundary (e.g. `America/Sao_Paulo`). |
+| `--timezone TZ` | Timezone for the "today" boundary (e.g. `America/Sao_Paulo`). Defaults to UTC if unset. |
 | `--reconfigure` | Re-run the first-time setup. |
 
 ### Exit codes (`--once`)

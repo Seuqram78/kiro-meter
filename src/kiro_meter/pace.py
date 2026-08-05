@@ -6,7 +6,7 @@ import calendar
 import json
 import math
 from dataclasses import dataclass
-from datetime import date, timedelta
+from datetime import UTC, date, timedelta
 from typing import TYPE_CHECKING, Protocol
 
 import httpx
@@ -14,7 +14,7 @@ import httpx
 from kiro_meter.models import PaceInfo
 
 if TYPE_CHECKING:
-    from datetime import datetime
+    from datetime import datetime, tzinfo
     from pathlib import Path
 
     from kiro_meter.models import AccountInfo, AppConfig, DbSnapshot, PaceMode
@@ -155,6 +155,12 @@ class PaceExtras:
     """The official `used` figure captured at the first run of the local day
     (see `kiro_meter.baseline`). Feeds `since_day_start_per_day`; that field
     is `None` without it."""
+    tz: tzinfo = UTC
+    """Timezone defining calendar-day boundaries for workday-mode counting
+    (holiday lookups, "today"). Calendar mode's day math is timezone-agnostic
+    (pure elapsed-time intervals between absolute instants), so this only
+    matters when `cfg.workdays` is on - passing UTC there would silently
+    shift "today" by up to a day for users east of it (e.g. AU/WA)."""
 
 
 _DEFAULT_EXTRAS = PaceExtras()
@@ -192,7 +198,11 @@ def compute_pace(
     if cfg.workdays and holidays is not None:
         mode = "workday"
         cycle_len, days_until, non_working, available = _workday_spans(
-            cfg, holidays, now=now, cycle_start=cycle_start, reset=account.next_reset
+            cfg,
+            holidays,
+            today=now.astimezone(extras.tz).date(),
+            cycle_start=cycle_start.astimezone(extras.tz).date(),
+            reset=account.next_reset.astimezone(extras.tz).date(),
         )
     else:
         mode = "calendar"
@@ -253,22 +263,28 @@ def _workday_spans(
     cfg: AppConfig,
     holidays: HolidayProvider,
     *,
-    now: datetime,
-    cycle_start: datetime,
-    reset: datetime,
+    today: date,
+    cycle_start: date,
+    reset: date,
 ) -> tuple[float, float, bool, bool]:
     """Return (working days in cycle, working days until reset, non_working, available).
+
+    `today`/`cycle_start`/`reset` must already be calendar dates in the
+    user's own timezone (see `compute_pace`) - public holidays and "today"
+    are local-calendar-date concepts, not UTC, so converting instants with
+    `.astimezone(tz)` before calling this is what keeps a user east of UTC
+    from getting "today" (and the whole working-day count) shifted back by
+    up to a day.
 
     Falls back to a weekends-only count if holidays cannot be fetched.
     """
     country = cfg.country or ""
-    today = now.date()
     try:
         cycle_len = holidays.working_days_between(
-            cycle_start.date(), reset.date(), country=country, region=cfg.region
+            cycle_start, reset, country=country, region=cfg.region
         )
         until = holidays.working_days_between(
-            today, reset.date(), country=country, region=cfg.region
+            today, reset, country=country, region=cfg.region
         )
         non_working = (
             holidays.working_days_between(
@@ -277,8 +293,8 @@ def _workday_spans(
             == 0
         )
     except HolidayUnavailableError:
-        cycle_len = _weekdays_between(cycle_start.date(), reset.date())
-        until = _weekdays_between(today, reset.date())
+        cycle_len = _weekdays_between(cycle_start, reset)
+        until = _weekdays_between(today, reset)
         non_working = today.weekday() >= _FIRST_WEEKEND_DAY
         return float(cycle_len), float(until), non_working, False
     return float(cycle_len), float(until), non_working, True

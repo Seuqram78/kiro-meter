@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, date, datetime
 from typing import TYPE_CHECKING
+from zoneinfo import ZoneInfo
 
 import httpx
 
@@ -143,6 +144,38 @@ def test_available_regions_lists_subdivision_codes(tmp_path: Path) -> None:
     )
     provider = NagerHolidayProvider(client=client, cache_dir=tmp_path)
     assert provider.available_regions("BR", 2026) == ["BR-RJ", "BR-SP"]
+
+
+def test_workday_mode_uses_local_date_not_utc_date(tmp_path: Path) -> None:
+    """Workday counting uses the caller's tz for "today," not the UTC date.
+
+    2026-07-17 20:00 UTC is a Friday in UTC, but already Saturday
+    2026-07-18 04:00 in Perth (UTC+8) - a working-day count anchored to the
+    raw UTC date would wrongly treat "today" as a Friday workday.
+    """
+    client = httpx.Client(
+        transport=httpx.MockTransport(lambda _r: httpx.Response(200, json=[]))
+    )
+    provider = NagerHolidayProvider(client=client, cache_dir=tmp_path)
+    now = datetime(2026, 7, 17, 20, 0, tzinfo=UTC)
+    cfg = AppConfig(workdays=True, country="AU", region="WA")
+    account = _account(14.0, 50.0)
+
+    utc_pace = compute_pace(
+        account, _db(1.0), cfg, now=now, extras=PaceExtras(holidays=provider)
+    )
+    perth_pace = compute_pace(
+        account,
+        _db(1.0),
+        cfg,
+        now=now,
+        extras=PaceExtras(holidays=provider, tz=ZoneInfo("Australia/Perth")),
+    )
+
+    assert utc_pace.non_working_today is False  # Friday in UTC
+    assert perth_pace.non_working_today is True  # Saturday in Perth
+    assert perth_pace.days_gone == utc_pace.days_gone + 1
+    assert perth_pace.days_forecast == utc_pace.days_forecast - 1
 
 
 def test_workday_mode_sets_mode_and_uses_provider(tmp_path: Path) -> None:

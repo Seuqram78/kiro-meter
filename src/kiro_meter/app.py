@@ -141,7 +141,9 @@ def build_snapshot(
             db,
             cfg,
             now=now,
-            extras=PaceExtras(holidays=ctx.holidays, today_baseline=baseline),
+            extras=PaceExtras(
+                holidays=ctx.holidays, today_baseline=baseline, tz=ctx.tz
+            ),
         )
         if account is not None
         else None
@@ -235,7 +237,9 @@ def run_live(
                             cfg,
                             now=now,
                             extras=PaceExtras(
-                                holidays=ctx.holidays, today_baseline=today_baseline
+                                holidays=ctx.holidays,
+                                today_baseline=today_baseline,
+                                tz=ctx.tz,
                             ),
                         )
                         if account is not None

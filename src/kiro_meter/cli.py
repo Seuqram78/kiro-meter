@@ -38,8 +38,7 @@ def main(argv: list[str] | None = None) -> int:
     args = _parse_args(argv)
     with httpx.Client() as client:
         cfg = _resolve_config(args, client=client)
-        local_tz = datetime.now(UTC).astimezone().tzinfo
-        tz = ZoneInfo(cfg.timezone) if cfg.timezone else local_tz
+        tz = ZoneInfo(cfg.timezone) if cfg.timezone else UTC
         holidays = (
             NagerHolidayProvider(client=client, cache_dir=CONFIG_PATH.parent)
             if cfg.workdays
