@@ -44,33 +44,68 @@ def test_official_gauge_rendered_when_account_present() -> None:
     assert "official" in text.lower()
 
 
+def test_plan_gauge_shows_remaining_balance() -> None:
+    """The Plan line states the cycle-wide balance left, not just used/limit."""
+    account = replace(_account(), used=11.21, limit=50.0)
+    snap = Snapshot(_db(), account, "ok", _pace(), _NOW)
+    text = _render(snap)
+    assert "38.79" in text
+    assert "left this cycle" in text
+
+
+def test_today_line_shows_remaining_today_budget() -> None:
+    """Today's line states what's left of *today's* slice of the allowance."""
+    pace = replace(_pace(), allowance_per_day=1.61)
+    db = replace(_db(), today_credits=0.31)
+    snap = Snapshot(db, _account(), "ok", pace, _NOW)
+    text = _render(snap)
+    assert "1.30" in text
+    assert "left in today's budget" in text
+
+
+def test_today_line_flags_when_over_todays_budget() -> None:
+    """Overspending today's slice reads as over-budget, not a negative "left"."""
+    pace = replace(_pace(), allowance_per_day=1.61)
+    db = replace(_db(), today_credits=2.50)
+    snap = Snapshot(db, _account(), "ok", pace, _NOW)
+    text = _render(snap)
+    assert "0.89" in text
+    assert "over today's budget" in text
+    assert "-0.89" not in text
+
+
 def test_pace_lines_render_forecast_and_days() -> None:
-    """The Pace block shows if-done-today, since-day-start, and the days count."""
+    """The Pace block shows the forward daily rate and the days count."""
     snap = Snapshot(_db(), _account(), "ok", _pace(), _NOW)
     text = _render(snap)
-    assert "if done today" in text
-    assert "since day start" in text
+    assert "cr/day" in text
     assert "days gone" in text
     assert "days forecast" in text
 
 
-def test_can_spend_ahead_of_pace_is_not_styled_as_over() -> None:
-    """A positive can_spend_credits reads as being ahead of pace."""
-    pace = replace(_pace(), can_spend_credits=11.37)
+def test_pace_headline_reads_green_when_rate_loosens() -> None:
+    """A forward rate at or above the flat allowance reads as on-budget (not over)."""
+    pace = replace(_pace(), allowance_per_day=1.61, if_done_today_per_day=1.72)
     snap = Snapshot(_db(), _account(), "ok", pace, _NOW)
     text = _render(snap)
-    assert "ahead of pace" in text
-    assert "over pace" not in text
+    assert "1.72" in text
+    assert "over" not in text.lower()
 
 
-def test_can_spend_negative_reads_as_over_pace() -> None:
-    """A negative can_spend_credits reads as being over pace, sign stripped."""
-    pace = replace(_pace(), can_spend_credits=-11.37)
+def test_pace_headline_reads_tighter_rate_distinctly() -> None:
+    """A forward rate below the flat allowance still renders (styled distinctly)."""
+    pace = replace(_pace(), allowance_per_day=1.61, if_done_today_per_day=1.20)
     snap = Snapshot(_db(), _account(), "ok", pace, _NOW)
     text = _render(snap)
-    assert "over pace" in text
-    assert "11.37" in text
-    assert "-11.37" not in text
+    assert "1.20" in text
+
+
+def test_pace_headline_handles_last_day_of_cycle() -> None:
+    """With no forecast days left, the headline says so instead of dividing by zero."""
+    pace = replace(_pace(), if_done_today_per_day=None)
+    snap = Snapshot(_db(), _account(), "ok", pace, _NOW)
+    text = _render(snap)
+    assert "last day of the cycle" in text
 
 
 def test_today_flagged_shows_warning_marker() -> None:

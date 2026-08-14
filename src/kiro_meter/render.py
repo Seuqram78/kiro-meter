@@ -305,18 +305,22 @@ def _account_section(snap: Snapshot) -> RenderableType:
 
 
 def _plan_gauge(account: AccountInfo) -> RenderableType:
-    """Render the used/limit bar with the reset date, coloured by usage state."""
+    """Render the used/limit bar with the reset date and remaining balance."""
     pct = account.used / account.limit * _PERCENT if account.limit else 0.0
     style = _usage_style(pct)
     filled, empty = _bar(pct / _PERCENT)
     reset = account.next_reset.strftime("%b %d")
+    remaining = max(account.limit - account.used, 0.0)
     return Text.assemble(
         ("Plan  ", "bold"),
         (filled, style),
         (empty, _TRACK_STYLE),
         (f"  {account.used:.2f} / {account.limit:.2f} cr  ", ""),
         (f"{pct:.0f}%\n", f"bold {style}"),
-        (f"      resets {reset} (official)", "italic"),
+        (
+            f"      resets {reset} (official)  ·  {remaining:.2f} cr left this cycle",
+            "italic",
+        ),
     )
 
 
@@ -332,7 +336,7 @@ def _usage_style(pct: float) -> str:
 def _today_line(
     db: DbSnapshot, pace: PaceInfo | None, *, today_flagged: bool
 ) -> RenderableType:
-    """Render today's spend, with a pace bar when a target exists.
+    """Render today's spend, with a pace bar and left-today note when a target exists.
 
     The figure comes from the API-usage baseline when an account is
     available (see ``app._resolve_today``), else it falls back to the local
@@ -344,37 +348,53 @@ def _today_line(
         filled, empty = _bar(pace.today_fraction)
         pct = pace.today_fraction * _PERCENT
         detail = f"  {db.today_credits:.2f} cr  ({pct:.0f}% allowance, {source}){flag}"
-        return Text.assemble(
+        line = Text.assemble(
             "Today ",
             (filled, "cyan"),
             (empty, _TRACK_STYLE),
             (detail, ""),
         )
+        note = _today_left_note(pace, db)
+        if note is not None:
+            line.append(note[0], style=note[1])
+        return line
     return Text(
         f"Today  {db.today_credits:.2f} cr  ({db.today_turns} turns, {source}){flag}"
     )
 
 
+def _today_left_note(pace: PaceInfo, db: DbSnapshot) -> tuple[str, str] | None:
+    """Return (text, style) for what's left of *today's* slice of the allowance.
+
+    This answers "how much can I still spend today", which the Pace headline
+    deliberately doesn't - that headline is a forward rate for the days
+    *after* today (see `_pace_headline`). Today's own remaining budget is a
+    separate, simpler subtraction: today's flat allowance minus what's
+    already been spent today.
+    """
+    if pace.allowance_per_day is None:
+        return None
+    left = pace.allowance_per_day - db.today_credits
+    if left >= 0:
+        return f"\n      {left:.2f} cr left in today's budget", "italic"
+    return f"\n      {-left:.2f} cr over today's budget", "yellow"
+
+
 def _pace_lines(pace: PaceInfo) -> list[RenderableType]:
-    """Render the allowance, can-spend, forecast, and days-count pace lines."""
-    lines: list[RenderableType] = []
-    if pace.allowance_per_day is not None:
-        allowance = f"Pace  allowance {pace.allowance_per_day:.2f} cr/day (even budget)"
-        lines.append(Text(allowance, style="italic"))
-    if pace.can_spend_credits is not None:
-        lines.append(_can_spend_line(pace.can_spend_credits))
-    if pace.if_done_today_per_day is not None:
-        if_done_today = (
-            f"      if done today {pace.if_done_today_per_day:.2f} cr/day "
-            "(rest of cycle, from tomorrow)"
-        )
-        lines.append(Text(if_done_today, style="italic"))
-    if pace.since_day_start_per_day is not None:
-        since_day_start = (
-            f"      since day start {pace.since_day_start_per_day:.2f} cr/day "
-            "(rest of cycle, time-adjusted)"
-        )
-        lines.append(Text(since_day_start, style="italic"))
+    """Render one pace headline: the daily rate that lands on the limit at reset.
+
+    Earlier drafts also surfaced a cumulative "banked" total and a second,
+    near-duplicate forecast rate ("since day start") alongside this one -
+    three numbers answering three subtly different questions, shown with
+    equal weight, read as contradicting each other. There is exactly one
+    question worth answering at a glance here ("what should I spend per day
+    from now on?"), so only `if_done_today_per_day` - the rate against the
+    live `used` total, for the days after today - is shown. Its colour
+    already encodes ahead/behind (green when it's looser than the flat
+    per-day allowance, i.e. you've been under-spending; red when tighter).
+    The other two figures are still in the JSON export for scripting.
+    """
+    lines: list[RenderableType] = [_pace_headline(pace)]
     days = (
         f"      {pace.days_gone} days gone, today, {pace.days_forecast} days forecast"
     )
@@ -382,12 +402,19 @@ def _pace_lines(pace: PaceInfo) -> list[RenderableType]:
     return lines
 
 
-def _can_spend_line(can_spend_credits: float) -> RenderableType:
-    """Render the schedule-adherence balance, styled distinctly when over pace."""
-    if can_spend_credits >= 0:
-        text = f"      can spend {can_spend_credits:.2f} cr ahead of pace"
-        return Text(text, style="italic")
-    return Text(f"      can spend {-can_spend_credits:.2f} cr over pace", style="red")
+def _pace_headline(pace: PaceInfo) -> RenderableType:
+    """Render the forward daily rate needed to land on the limit at reset."""
+    if pace.if_done_today_per_day is None:
+        return Text(
+            "Pace  last day of the cycle - nothing left to average", style="italic"
+        )
+    rate = pace.if_done_today_per_day
+    on_budget = pace.allowance_per_day is None or rate >= pace.allowance_per_day
+    icon, style = ("✓", "bold green") if on_budget else ("✗", "bold red")
+    text = (
+        f"Pace  {icon} spend about {rate:.2f} cr/day from now on to land on the limit"
+    )
+    return Text(text, style=style)
 
 
 def _burn_line(burn_rate_per_min: float) -> RenderableType:
