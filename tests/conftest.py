@@ -64,6 +64,7 @@ def pace_info() -> PaceInfo:
         can_spend_credits=11.37,
         if_done_today_per_day=1.72,
         since_day_start_per_day=1.69,
+        today_budget=1.69,
         days_gone=26,
         days_forecast=3,
         today_fraction=0.15,

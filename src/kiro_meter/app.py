@@ -392,6 +392,7 @@ def _pace_dict(pace: PaceInfo | None) -> dict[str, object] | None:
         "can_spend_credits": pace.can_spend_credits,
         "if_done_today_per_day": pace.if_done_today_per_day,
         "since_day_start_per_day": pace.since_day_start_per_day,
+        "today_budget": pace.today_budget,
         "days_gone": pace.days_gone,
         "days_forecast": pace.days_forecast,
         "today_fraction": pace.today_fraction,

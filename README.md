@@ -23,7 +23,11 @@ mechanism). Other AI tools/vendors are out of scope; see
 
 - **Plan gauge** — credits used vs your plan limit and the reset date, coloured
   green → amber → red by usage (official, when a valid Kiro session exists).
-- **Today** — today's credit spend against your daily allowance.
+- **Today** — today's credit spend against two budgets: `even` (the flat
+  allowance an even spender would have) and `actual` (what's genuinely left,
+  spread over today and the days remaining). Only `actual` is colour-coded,
+  since banking slack early and spending it later reads as far "over" the even
+  line while sitting well inside the real one.
 - **Pace** — `allowance` (even daily budget = limit ÷ cycle length) vs
   `can spend` (remaining ÷ days left).
 - **Burn rate** — recent credits per minute.
@@ -130,6 +134,7 @@ Pretty-printed here for readability:
     "can_spend_credits": 11.37,
     "if_done_today_per_day": 1.72,
     "since_day_start_per_day": 1.69,
+    "today_budget": 1.69,
     "days_gone": 26,
     "days_forecast": 3,
     "today_fraction": 0.15,
@@ -168,6 +173,7 @@ Pretty-printed here for readability:
 | `pace.can_spend_credits` | number or `null` | Schedule-adherence balance in credits: `(whole days into the cycle, today included) × allowance − used`. Positive means ahead of the ideal even-pace line (banked slack); negative means over it. |
 | `pace.if_done_today_per_day` | number or `null` | Daily rate for the rest of the cycle **after today**, assuming no more spend happens today. Whole days only (tomorrow → reset). |
 | `pace.since_day_start_per_day` | number or `null` | Rate for the rest of the cycle (today included, whole days), but with the numerator frozen to this morning's API-usage baseline instead of the current `used` — isolates today's actual spending from the rest of the calculation. `null` when no baseline is available yet. |
+| `pace.today_budget` | number or `null` | **Today's actual ceiling**: what was still available at the start of today spread over today and every whole day left (`(limit − this morning's baseline) / days left including today`). Unlike `allowance_per_day` this counts banked slack, so an underspent cycle raises it. Frozen to this morning's baseline so it holds still all day; falls back to the live `used` total before the day's first baseline exists. `null` on the last day of the cycle. |
 | `pace.days_gone` / `.days_forecast` | integer | Whole days fully completed before today, and whole days remaining after today until reset (today itself is neither — it's the in-progress day). `days_forecast` is the denominator `if_done_today_per_day` uses. Every day count in `pace` is a whole number — none of these are fractional. |
 | `pace.projection_runout` | string (ISO-8601) or `null` | Projected credit-exhaustion date, if trending over. |
 | `usage` | object or `null` | `null` when there's no local spend data yet. |

@@ -55,23 +55,45 @@ def test_plan_gauge_shows_remaining_balance() -> None:
 
 def test_today_line_shows_remaining_today_budget() -> None:
     """Today's line states what's left of *today's* slice of the allowance."""
-    pace = replace(_pace(), allowance_per_day=1.61)
+    pace = replace(_pace(), allowance_per_day=1.61, today_budget=1.61)
     db = replace(_db(), today_credits=0.31)
     snap = Snapshot(db, _account(), "ok", pace, _NOW)
     text = _render(snap)
     assert "1.30" in text
-    assert "left in today's budget" in text
+    assert "cr left of" in text
 
 
 def test_today_line_flags_when_over_todays_budget() -> None:
     """Overspending today's slice reads as over-budget, not a negative "left"."""
-    pace = replace(_pace(), allowance_per_day=1.61)
+    pace = replace(_pace(), allowance_per_day=1.61, today_budget=1.61)
     db = replace(_db(), today_credits=2.50)
     snap = Snapshot(db, _account(), "ok", pace, _NOW)
     text = _render(snap)
     assert "0.89" in text
-    assert "over today's budget" in text
+    assert "cr over" in text
     assert "-0.89" not in text
+
+
+def test_today_line_shows_both_even_and_actual_budgets() -> None:
+    """Banked slack shows as over the even line but inside the actual one."""
+    pace = replace(_pace(), allowance_per_day=1.61, today_budget=10.0)
+    db = replace(_db(), today_credits=2.50)
+    snap = Snapshot(db, _account(), "ok", pace, _NOW)
+    text = _render(snap)
+    assert "even" in text
+    assert "actual" in text
+    assert "0.89 cr over 1.61/day" in text
+    assert "7.50 cr left of 10.00/day" in text
+
+
+def test_today_line_omits_actual_row_without_a_budget() -> None:
+    """No actual budget (last day of the cycle) leaves just the even row."""
+    pace = replace(_pace(), allowance_per_day=1.61, today_budget=None)
+    db = replace(_db(), today_credits=0.31)
+    snap = Snapshot(db, _account(), "ok", pace, _NOW)
+    text = _render(snap)
+    assert "even" in text
+    assert "actual" not in text
 
 
 def test_pace_lines_render_forecast_and_days() -> None:

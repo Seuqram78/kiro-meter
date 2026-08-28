@@ -85,6 +85,7 @@ class PaceInfo:
     can_spend_credits: float | None
     if_done_today_per_day: float | None
     since_day_start_per_day: float | None
+    today_budget: float | None
     days_gone: int
     days_forecast: int
     today_fraction: float | None

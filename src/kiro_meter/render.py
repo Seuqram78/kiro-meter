@@ -336,7 +336,7 @@ def _usage_style(pct: float) -> str:
 def _today_line(
     db: DbSnapshot, pace: PaceInfo | None, *, today_flagged: bool
 ) -> RenderableType:
-    """Render today's spend, with a pace bar and left-today note when a target exists.
+    """Render today's spend against both of today's budgets.
 
     The figure comes from the API-usage baseline when an account is
     available (see ``app._resolve_today``), else it falls back to the local
@@ -344,40 +344,55 @@ def _today_line(
     """
     source = "official" if pace is not None else "local"
     flag = "  ⚠ local sum exceeds API total" if today_flagged else ""
-    if pace is not None and pace.today_fraction is not None:
-        filled, empty = _bar(pace.today_fraction)
-        pct = pace.today_fraction * _PERCENT
-        detail = f"  {db.today_credits:.2f} cr  ({pct:.0f}% allowance, {source}){flag}"
-        line = Text.assemble(
-            "Today ",
-            (filled, "cyan"),
-            (empty, _TRACK_STYLE),
-            (detail, ""),
-        )
-        note = _today_left_note(pace, db)
-        if note is not None:
-            line.append(note[0], style=note[1])
-        return line
-    return Text(
+    head = Text(
         f"Today  {db.today_credits:.2f} cr  ({db.today_turns} turns, {source}){flag}"
     )
+    if pace is None or pace.allowance_per_day is None:
+        return head
+    rows = [
+        _budget_row("even", pace.allowance_per_day, db.today_credits, verdict=False),
+        _budget_row("actual", pace.today_budget, db.today_credits, verdict=True),
+    ]
+    return Group(head, *[row for row in rows if row is not None])
 
 
-def _today_left_note(pace: PaceInfo, db: DbSnapshot) -> tuple[str, str] | None:
-    """Return (text, style) for what's left of *today's* slice of the allowance.
+def _budget_row(
+    label: str, budget: float | None, spent: float, *, verdict: bool
+) -> RenderableType | None:
+    """Render one "spent against this budget" bar for today.
 
-    This answers "how much can I still spend today", which the Pace headline
-    deliberately doesn't - that headline is a forward rate for the days
-    *after* today (see `_pace_headline`). Today's own remaining budget is a
-    separate, simpler subtraction: today's flat allowance minus what's
-    already been spent today.
+    Two budgets are shown because they disagree by design and the
+    disagreement is the useful part: `even` is the flat allowance (what an
+    even spender would have spent today), `actual` re-spreads the credits
+    genuinely still available (see `pace._today_budget`). Banking slack and
+    then spending it puts you far "over" the even line while sitting well
+    inside the real one.
+
+    Only the `verdict` row is colour-coded green/amber/red, so the shown
+    verdict is the one against credits that actually exist. The other row
+    stays deliberately muted: it is context for why the numbers differ, not
+    a second alarm competing with the first (the failure mode described in
+    `_pace_lines`).
     """
-    if pace.allowance_per_day is None:
+    if budget is None:
         return None
-    left = pace.allowance_per_day - db.today_credits
-    if left >= 0:
-        return f"\n      {left:.2f} cr left in today's budget", "italic"
-    return f"\n      {-left:.2f} cr over today's budget", "yellow"
+    pct = spent / budget * _PERCENT if budget else 0.0
+    filled, empty = _bar(pct / _PERCENT)
+    left = budget - spent
+    balance = (
+        f"{left:.2f} cr left of {budget:.2f}/day"
+        if left >= 0
+        else f"{-left:.2f} cr over {budget:.2f}/day"
+    )
+    style = _usage_style(pct) if verdict else _TRACK_STYLE
+    pct_style = f"bold {style}" if verdict else "italic"
+    return Text.assemble(
+        (f"      {label:<6} ", "italic"),
+        (filled, style),
+        (empty, _TRACK_STYLE),
+        (f"  {pct:>4.0f}%  ", pct_style),
+        (balance, "italic"),
+    )
 
 
 def _pace_lines(pace: PaceInfo) -> list[RenderableType]:

@@ -227,6 +227,7 @@ def compute_pace(
     since_day_start_per_day = _since_day_start(
         account, extras.today_baseline, days_until
     )
+    today_budget = _today_budget(account, extras.today_baseline, days_until)
 
     return PaceInfo(
         mode=mode,
@@ -234,6 +235,7 @@ def compute_pace(
         can_spend_credits=can_spend_credits,
         if_done_today_per_day=if_done_today_per_day,
         since_day_start_per_day=since_day_start_per_day,
+        today_budget=today_budget,
         days_gone=days_gone,
         days_forecast=days_forecast,
         today_fraction=today_fraction,
@@ -267,6 +269,31 @@ def _since_day_start(
         return None
     remaining_from_start = max(account.limit - today_baseline, 0.0)
     return remaining_from_start / days_until
+
+
+def _today_budget(
+    account: AccountInfo, today_baseline: float | None, days_until: int
+) -> float | None:
+    """Today's own ceiling once banked slack counts, not the flat allowance.
+
+    `allowance_per_day` answers "what would a perfectly even spender spend
+    today", which reads as over-budget the moment you underspend early in a
+    cycle and then cash that slack in: the credits are genuinely there, the
+    even line just has no way to know about them. This spreads whatever was
+    actually left at the start of today across today and every whole day
+    still to come, so an underspent cycle raises today's ceiling instead of
+    pinning it to the even rate.
+
+    Numerator frozen to this morning's baseline (as in `_since_day_start`)
+    so the ceiling holds still all day rather than sliding down as today's
+    own spend gets re-spread across the days after it. Falls back to the
+    live `used` total before the day's first baseline exists, which costs
+    that stability but keeps the figure present from the first frame.
+    """
+    if days_until < 1:
+        return None
+    start = account.used if today_baseline is None else today_baseline
+    return max(account.limit - start, 0.0) / days_until
 
 
 def _workday_spans(

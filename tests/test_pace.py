@@ -104,6 +104,45 @@ def test_since_day_start_uses_baseline_numerator() -> None:
     )
 
 
+def test_today_budget_spreads_banked_slack_over_remaining_days() -> None:
+    """Underspending raises today's ceiling above the flat even allowance."""
+    baseline = 10.0
+    pace = compute_pace(
+        _account(used=_USED, limit=_LIMIT),
+        _db(1.0),
+        AppConfig(),
+        now=_NOW,
+        extras=PaceExtras(today_baseline=baseline),
+    )
+    assert pace.today_budget is not None
+    assert pace.allowance_per_day is not None
+    assert round(pace.today_budget, _NDIGITS) == round(
+        (_LIMIT - baseline) / _DAYS_LEFT, _NDIGITS
+    )
+    assert pace.today_budget > pace.allowance_per_day
+
+
+def test_today_budget_falls_back_to_live_used_without_baseline() -> None:
+    """With no baseline yet the ceiling still renders, off the live used total."""
+    pace = compute_pace(
+        _account(used=_USED, limit=_LIMIT), _db(1.0), AppConfig(), now=_NOW
+    )
+    assert pace.since_day_start_per_day is None
+    assert pace.today_budget is not None
+    assert round(pace.today_budget, _NDIGITS) == round(
+        (_LIMIT - _USED) / _DAYS_LEFT, _NDIGITS
+    )
+
+
+def test_today_budget_none_when_reset_imminent() -> None:
+    """Past the last whole day of the cycle there is no budget left to spread."""
+    now = datetime(2026, 8, 1, 0, 0, tzinfo=UTC)
+    pace = compute_pace(
+        _account(used=40.0, limit=_LIMIT), _db(0.0), AppConfig(), now=now
+    )
+    assert pace.today_budget is None
+
+
 def test_if_done_today_none_when_reset_imminent() -> None:
     """When under a day remains, if-done-today is None (no whole days left)."""
     now = datetime(2026, 7, 31, 23, 50, tzinfo=UTC)
