@@ -39,7 +39,7 @@ source = "vcs"
 version-file = "src/kiro_meter/_version.py"
 
 [dependency-groups]
-dev = ["pytest>=8", "ruff>=0.6", "complexipy>=1"]
+dev = ["pytest>=8", "ruff>=0.6", "complexipy>=1", "pip-audit>=2"]
 
 [tool.ruff.lint]
 select = ["ALL"]

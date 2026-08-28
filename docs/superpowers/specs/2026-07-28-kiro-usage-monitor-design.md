@@ -207,12 +207,6 @@ Isolated, independently testable modules:
   ```
 - **Git:** small, incremental commits, each with `ruff check` + tests green
   before committing. Conventional-commit style messages.
-- **CodeGraph:** the repository is indexed with
-  [CodeGraph](https://codegraph.dev) (`.codegraph/` at the root, created via
-  `codegraph init`). Contributors query the graph (`codegraph explore` / the
-  `codegraph_explore` MCP tool) to understand and locate code before falling
-  back to grep/find. The generated index is git-ignored; each clone runs
-  `codegraph init` once. Required dev tooling.
 
 ## 9. Packaging
 

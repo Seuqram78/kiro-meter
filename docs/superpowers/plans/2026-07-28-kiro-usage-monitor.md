@@ -6,7 +6,7 @@
 
 **Architecture:** A read-only pipeline. Pure data modules (`db`, `account`, `pace`, `config`) produce typed dataclasses; `render` turns a merged `Snapshot` into a `rich` renderable; `app` runs the `rich.Live` loop (poll SQLite every ~3s, refresh the official limit every ~5min); `cli` parses flags and wires it together. Network and DB access are each isolated behind one function so everything else is unit-tested without I/O.
 
-**Tech Stack:** Python 3.14, `rich` (TUI), `httpx` (HTTP), stdlib `sqlite3`/`tomllib`/`datetime`/`zoneinfo`. Tooling: `uv`, `ruff`, `pytest`, CodeGraph.
+**Tech Stack:** Python 3.14, `rich` (TUI), `httpx` (HTTP), stdlib `sqlite3`/`tomllib`/`datetime`/`zoneinfo`. Tooling: `uv`, `ruff`, `pytest`.
 
 ## Global Constraints
 
@@ -18,7 +18,6 @@ Every task's requirements implicitly include this section.
 - **Provenance:** every displayed number is labelled `official`, `local`, `local · approx`, or `unavailable`. Never present a local estimate as official.
 - **Privacy/tests:** no real tokens, emails, or live network in tests. Fixtures are synthetic. The local SQLite DB is opened read-only.
 - **Git:** each task ends with `ruff check`, `ruff format --check`, and `pytest` all green, then one conventional-commit-style commit. Commit messages end with the `Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>` trailer.
-- **CodeGraph:** repo is a CodeGraph project; use it to navigate.
 
 ---
 
@@ -1260,8 +1259,8 @@ git commit -m "feat: wire live loop and CLI entry point"
 
 - [ ] **Step 2: Run the complete gate one more time**
 
-Run: `uv run ruff check && uv run ruff format --check && uv run pytest && codegraph init`
-Expected: clean lint, all tests pass, CodeGraph re-indexes the new source.
+Run: `./lint.sh && uv run pytest`
+Expected: clean lint, all tests pass.
 
 - [ ] **Step 3: Commit and push**
 

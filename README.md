@@ -227,13 +227,22 @@ Requires Python 3.14 (pinned via `.python-version`).
 
 ```sh
 uv sync
-codegraph init      # once per clone — indexes the repo for CodeGraph
-uv run ruff check
-uv run ruff format --check
+./lint.sh           # the linting standard — run this before every commit
 uv run pytest
 ```
 
-- Lint runs with `ruff` `select = ["ALL"]` and no inline `# noqa` — see
-  [the design doc](docs/superpowers/specs/) for the code-quality policy.
-- The repo is a **CodeGraph** project — use `codegraph explore` to navigate the
-  code. The index (`.codegraph/`) is git-ignored and regenerated locally.
+- **`./lint.sh` is the linting standard.** It is the single entry point and the
+  only thing that has to pass: `ruff check --fix`, `ruff check`, `ruff format
+  --check`, `complexipy` cognitive-complexity limits, the
+  `tests/test_code_quality.sh` escape-hatch gate, and a `pip-audit`
+  vulnerability audit of the pinned dependency set. It exits non-zero on the
+  first failure, so a green run means every gate passed. Don't run the
+  individual `ruff` commands as a substitute — they are a subset.
+- `tests/test_code_quality.sh` enforces what ruff structurally cannot: ruff has
+  no rule forbidding *looser ruff configuration*. It fails on any inline
+  `# noqa` and on any top-level ignore or `per-file-ignores` entry that isn't in
+  its sanctioned baseline — so new escape hatches have to be added to the
+  baseline deliberately rather than slipped into `pyproject.toml`. See
+  [the design doc](docs/superpowers/specs/) for the policy it encodes.
+- `uv run pytest` is the behavioural suite and is deliberately *not* part of
+  `lint.sh` — linting and testing are separate gates. Run both.
