@@ -214,7 +214,6 @@ def compute_pace(
 
     allowance = account.limit / cycle_len if cycle_len >= 1 else None
     today_fraction = db.today_credits / allowance if allowance else None
-    runout = account.next_reset if days_until >= 1 else None
 
     days_gone = max(cycle_len - days_until, 0)
     days_forecast = max(days_until - 1, 0)
@@ -228,6 +227,9 @@ def compute_pace(
         account, extras.today_baseline, days_until
     )
     today_budget = _today_budget(account, extras.today_baseline, days_until)
+    runout = _projection_runout(
+        remaining, db.today_credits, now=now, reset=account.next_reset
+    )
 
     return PaceInfo(
         mode=mode,
@@ -243,6 +245,30 @@ def compute_pace(
         non_working_today=non_working,
         holidays_available=available,
     )
+
+
+def _projection_runout(
+    remaining: float,
+    today_credits: float,
+    *,
+    now: datetime,
+    reset: datetime,
+) -> datetime | None:
+    """Project when credits are exhausted, or None when the trend lands before reset.
+
+    The projection uses today's spend as the daily pace - it is the freshest
+    signal and the one the user can act on right now. When today's pace would
+    exhaust the remaining balance before the cycle resets, the projected date
+    is returned; otherwise None (no alarm). A pace of zero or a non-positive
+    remaining balance means no projection is meaningful.
+    """
+    if remaining <= 0:
+        return now
+    if today_credits <= 0:
+        return None
+    days_left = remaining / today_credits
+    exhaustion = now + timedelta(days=days_left)
+    return exhaustion if exhaustion < reset else None
 
 
 def _calendar_spans(cycle_start: date, reset: date, today: date) -> tuple[int, int]:

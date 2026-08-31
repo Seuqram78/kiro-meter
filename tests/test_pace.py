@@ -153,6 +153,40 @@ def test_if_done_today_none_when_reset_imminent() -> None:
     assert pace.if_done_today_per_day is None
 
 
+def test_projection_runout_projects_before_reset_at_a_high_pace() -> None:
+    """A pace that exhausts credits before reset yields a projected date (A12)."""
+    # 36 cr remaining at 12 cr/day today -> ~3 days -> Jul 18, before Aug 1.
+    heavy_day = 12.0
+    pace = compute_pace(
+        _account(used=_USED, limit=_LIMIT),
+        _db(heavy_day),
+        AppConfig(),
+        now=_NOW,
+    )
+    assert pace.projection_runout is not None
+    assert pace.projection_runout < _account(_USED, _LIMIT).next_reset
+
+
+def test_projection_runout_is_none_when_trend_lands_after_reset() -> None:
+    """A modest pace that outlasts the cycle projects no early runout (A12)."""
+    light_day = 0.5  # 36 cr / 0.5 = 72 days, well past the Aug 1 reset
+    pace = compute_pace(
+        _account(used=_USED, limit=_LIMIT),
+        _db(light_day),
+        AppConfig(),
+        now=_NOW,
+    )
+    assert pace.projection_runout is None
+
+
+def test_projection_runout_is_none_without_spend() -> None:
+    """No spend today means no meaningful projection (avoids divide-by-zero)."""
+    pace = compute_pace(
+        _account(used=_USED, limit=_LIMIT), _db(0.0), AppConfig(), now=_NOW
+    )
+    assert pace.projection_runout is None
+
+
 def _holidays_payload() -> list[dict[str, object]]:
     return [{"date": "2026-07-04", "global": True, "counties": None}]
 

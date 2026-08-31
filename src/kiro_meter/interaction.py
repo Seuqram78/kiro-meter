@@ -59,7 +59,7 @@ class LiveState:
     show_local: bool = True
     quit: bool = False
     sort: TableSort = "cr_desc"
-    by_model: bool = True
+    by_model: bool = False
 
 
 # Keys whose effect doesn't depend on a delta, one transform each.

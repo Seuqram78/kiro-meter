@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import replace
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
@@ -14,10 +15,13 @@ from kiro_meter.models import AppConfig, DbSnapshot, Snapshot, UsageRow
 if TYPE_CHECKING:
     from rich.table import Table
 from kiro_meter.render import (
+    _EVEN_FILL_STYLE,
+    _SCANNER_STEP_FRAMES,
     _SORT_COLUMN_STYLE,
-    _STRIPE_STYLE,
+    _TRACK_STYLE,
     _VISIBLE_ROWS,
     TableView,
+    _bar,
     _usage_table,
     render_snapshot,
 )
@@ -74,16 +78,40 @@ def test_today_line_flags_when_over_todays_budget() -> None:
     assert "-0.89" not in text
 
 
-def test_today_line_shows_both_even_and_actual_budgets() -> None:
-    """Banked slack shows as over the even line but inside the actual one."""
+def test_today_line_actual_is_the_primary_verdict_row() -> None:
+    """The primary answer is `actual`; `even` is a muted reference, not a verdict."""
     pace = replace(_pace(), allowance_per_day=1.61, today_budget=10.0)
     db = replace(_db(), today_credits=2.50)
     snap = Snapshot(db, _account(), "ok", pace, _NOW)
     text = _render(snap)
     assert "even" in text
     assert "actual" in text
-    assert "0.89 cr over 1.61/day" in text
+    # `actual` carries the "left of ... /day" balance against real credits.
     assert "7.50 cr left of 10.00/day" in text
+    # `even` is a reference rate with a multiple, and never says "over" (A11).
+    assert "ref 1.61/day" in text
+    assert "1.6x today" in text  # 2.50 / 1.61
+
+
+def test_even_reference_row_never_says_over() -> None:
+    """`over` belongs only to the `actual` row, even when spend exceeds even (A11)."""
+    pace = replace(_pace(), allowance_per_day=1.61, today_budget=10.0)
+    db = replace(_db(), today_credits=9.00)  # under actual, way over even
+    snap = Snapshot(db, _account(), "ok", pace, _NOW)
+    even_line = next(
+        line for line in _render(snap).splitlines() if "even" in line and "ref" in line
+    )
+    assert "over" not in even_line
+
+
+def test_today_line_names_the_actual_horizon_inline() -> None:
+    """The `actual` row names its denominator (today + N days) inline (A6/A18)."""
+    pace = replace(_pace(), allowance_per_day=1.61, today_budget=1.69, days_forecast=3)
+    db = replace(_db(), today_credits=0.31)
+    snap = Snapshot(db, _account(), "ok", pace, _NOW)
+    console = Console(width=160, record=True)
+    console.print(render_snapshot(snap, AppConfig()))
+    assert "today + 3 days" in console.export_text()
 
 
 def test_today_line_omits_actual_row_without_a_budget() -> None:
@@ -96,30 +124,51 @@ def test_today_line_omits_actual_row_without_a_budget() -> None:
     assert "actual" not in text
 
 
-def test_pace_lines_render_forecast_and_days() -> None:
-    """The Pace block shows the forward daily rate and the days count."""
+def test_bar_marks_overflow_above_full_scale() -> None:
+    """A fraction over 1.0 gets a ▸ cap so 545% is distinct from 100% (A29)."""
+    full_filled, _ = _bar(1.0)
+    over_filled, _ = _bar(5.45)
+    assert "▸" not in full_filled  # exactly full is a plain bar
+    assert over_filled.endswith("▸")  # overflow is capped
+    assert full_filled != over_filled
+
+
+def test_even_bar_fill_and_track_have_distinct_values() -> None:
+    """The even bar's fill and track differ in value, not just texture (A30)."""
+    assert _EVEN_FILL_STYLE != _TRACK_STYLE
+
+    """The Pace block states headroom as capacity and phrases the days clearly."""
     snap = Snapshot(_db(), _account(), "ok", _pace(), _NOW)
     text = _render(snap)
-    assert "cr/day" in text
-    assert "days gone" in text
-    assert "days forecast" in text
+    assert "cr/day of headroom" in text
+    assert "days done" in text
+    assert "left after today" in text
 
 
-def test_pace_headline_reads_green_when_rate_loosens() -> None:
-    """A forward rate at or above the flat allowance reads as on-budget (not over)."""
+def test_pace_reads_as_capacity_not_an_instruction() -> None:
+    """Pace never uses the imperative "spend ..."; it states headroom (A8)."""
+    snap = Snapshot(_db(), _account(), "ok", _pace(), _NOW)
+    pace_line = next(line for line in _render(snap).splitlines() if "Pace" in line)
+    assert "spend" not in pace_line.lower()
+    assert "headroom" in pace_line
+
+
+def test_pace_days_line_pluralises_correctly() -> None:
+    """A one-day forecast reads "1 day", never "1 days" (A19)."""
+    pace = replace(_pace(), days_gone=1, days_forecast=1)
+    snap = Snapshot(_db(), _account(), "ok", pace, _NOW)
+    text = _render(snap)
+    assert "1 day done" in text
+    assert "1 day left after today" in text
+    assert "1 days" not in text
+
+
+def test_pace_headline_shows_the_forward_rate() -> None:
+    """The forward daily-headroom rate is shown."""
     pace = replace(_pace(), allowance_per_day=1.61, if_done_today_per_day=1.72)
     snap = Snapshot(_db(), _account(), "ok", pace, _NOW)
     text = _render(snap)
     assert "1.72" in text
-    assert "over" not in text.lower()
-
-
-def test_pace_headline_reads_tighter_rate_distinctly() -> None:
-    """A forward rate below the flat allowance still renders (styled distinctly)."""
-    pace = replace(_pace(), allowance_per_day=1.61, if_done_today_per_day=1.20)
-    snap = Snapshot(_db(), _account(), "ok", pace, _NOW)
-    text = _render(snap)
-    assert "1.20" in text
 
 
 def test_pace_headline_handles_last_day_of_cycle() -> None:
@@ -128,6 +177,16 @@ def test_pace_headline_handles_last_day_of_cycle() -> None:
     snap = Snapshot(_db(), _account(), "ok", pace, _NOW)
     text = _render(snap)
     assert "last day of the cycle" in text
+
+
+def test_projection_runout_surfaced_when_present() -> None:
+    """A projected runout date renders a Level-3 exhaustion warning (A13)."""
+    runout = datetime(2026, 7, 30, 12, 0, tzinfo=UTC)
+    pace = replace(_pace(), projection_runout=runout)
+    snap = Snapshot(_db(), _account(), "ok", pace, _NOW)
+    text = _render(snap)
+    assert "run out" in text.lower()
+    assert "before reset" in text.lower()
 
 
 def test_today_flagged_shows_warning_marker() -> None:
@@ -145,13 +204,21 @@ def test_today_not_flagged_has_no_warning_marker() -> None:
 
 
 def test_usage_table_aggregates_folder_and_model() -> None:
-    """The usage table shows each folder, its model, credits, and turns."""
+    """The per-model view shows each folder, its model, credits, and turns."""
     snap = Snapshot(_db(), _account(), "ok", _pace(), _NOW)
-    text = _render(snap)
+    text, _ = _render_windowed(snap, ui=LiveState(by_model=True))
     assert "proj-a" in text
     assert "sonnet-4.5" in text
     assert "0.21" in text
     assert "12" in text  # turn count for proj-b/haiku
+
+
+def test_usage_table_defaults_to_folder_merged() -> None:
+    """The default view is folder-merged: no per-model rows shown (A16)."""
+    snap = Snapshot(_db(), _account(), "ok", _pace(), _NOW)
+    text = _render(snap)
+    assert "proj-a" in text
+    assert "sonnet-4.5" not in text  # merged away by default
 
 
 def test_usage_table_shows_total_row() -> None:
@@ -161,6 +228,13 @@ def test_usage_table_shows_total_row() -> None:
     assert "Total" in text
     assert "0.31" in text  # 0.21 + 0.10
     assert "20" in text  # 8 + 12
+
+
+def test_total_row_names_the_plan_used_identity_when_scoped() -> None:
+    """A scoped table labels its Total as equal to the Plan gauge's used (A22)."""
+    snap = Snapshot(_db(), _account(), "ok", _pace(), _NOW)
+    text = _render(snap)
+    assert "Plan used" in text
 
 
 def test_usage_table_fills_console_width() -> None:
@@ -203,15 +277,23 @@ def test_no_footer_without_frame() -> None:
 
 def _marker_column(footer: str) -> int:
     """Index of the sweeping marker, ignoring the leading "● live" dot."""
-    return footer.index("●", footer.index("next"))
+    return footer.index("•", footer.index("next"))
 
 
-def test_scanner_marker_advances_one_column_per_frame() -> None:
-    """Each successive frame moves the marker exactly one column."""
+def test_scanner_marker_advances_one_column_per_step() -> None:
+    """The marker moves one column every _SCANNER_STEP_FRAMES redraws (slowed, A39)."""
     snap = Snapshot(_db(), _account(), "ok", _pace(), _NOW)
-    early = _marker_column(_footer_of(snap, 1))
-    late = _marker_column(_footer_of(snap, 2))
+    early = _marker_column(_footer_of(snap, _SCANNER_STEP_FRAMES))
+    late = _marker_column(_footer_of(snap, 2 * _SCANNER_STEP_FRAMES))
     assert late == early + 1
+
+
+def test_scanner_holds_position_within_a_step() -> None:
+    """Frames inside one step share a marker column (the sweep is slowed)."""
+    snap = Snapshot(_db(), _account(), "ok", _pace(), _NOW)
+    first = _marker_column(_footer_of(snap, _SCANNER_STEP_FRAMES))
+    same_step = _marker_column(_footer_of(snap, _SCANNER_STEP_FRAMES + 1))
+    assert first == same_step
 
 
 _MANY_ROWS = 20
@@ -384,20 +466,16 @@ def test_sort_folder_asc_groups_by_nesting_depth_before_alphabetical() -> None:
     """A shallower folder sorts first even when it's alphabetically later."""
     snap = Snapshot(_db_mixed_depth(), _account(), "ok", _pace(), _NOW)
     text, _ = _render_windowed(snap, ui=LiveState(sort="folder_asc"))
-    lines = [
-        line for line in text.splitlines() if "/home/a/b/c" in line or "/home/z" in line
-    ]
-    assert "/home/z" in lines[0]  # depth 2 sorts before depth 4, despite "z" > "a"
+    lines = [line for line in text.splitlines() if "/a/b/c" in line or "/z" in line]
+    assert "/z" in lines[0]  # depth 2 sorts before depth 4, despite "z" > "a"
 
 
 def test_sort_folder_desc_groups_by_nesting_depth_before_alphabetical() -> None:
     """The deepest folder sorts first in descending order, regardless of spelling."""
     snap = Snapshot(_db_mixed_depth(), _account(), "ok", _pace(), _NOW)
     text, _ = _render_windowed(snap, ui=LiveState(sort="folder_desc"))
-    lines = [
-        line for line in text.splitlines() if "/home/a/b/c" in line or "/home/z" in line
-    ]
-    assert "/home/a/b/c" in lines[0]  # depth 4 sorts before depth 2
+    lines = [line for line in text.splitlines() if "/a/b/c" in line or "/z" in line]
+    assert "/a/b/c" in lines[0]  # depth 4 sorts before depth 2
 
 
 def test_sort_cr_asc_reverses_credit_order() -> None:
@@ -486,7 +564,8 @@ def test_model_column_is_omitted_when_models_are_merged() -> None:
     """Folder-only view drops the model column instead of showing it blank."""
     headers = [col.header for col in _table_of(_merged_db(), by_model=False).columns]
     assert not any("model" in str(header) for header in headers)
-    assert any("model" in str(col.header) for col in _table_of(_merged_db()).columns)
+    per_model = _table_of(_merged_db(), by_model=True)
+    assert any("model" in str(col.header) for col in per_model.columns)
 
 
 def test_merged_view_shows_one_summed_row_per_folder() -> None:
@@ -517,25 +596,22 @@ def test_every_row_has_the_same_cell_count_as_the_header() -> None:
         assert widths == {len(table.columns)}
 
 
-def test_data_rows_alternate_stripes_by_absolute_position() -> None:
-    """Striping follows the row's position in the whole table, not the window."""
+def test_data_rows_are_not_striped() -> None:
+    """Striping was removed (A31); no data row carries a background fill style."""
     db = _db_many(_MANY_ROWS)
-    unscrolled = _table_of(db, row_window=(0, 4, _MANY_ROWS))
-    scrolled = _table_of(db, row_window=(1, 5, _MANY_ROWS))
-    first_four = [row.style for row in unscrolled.rows[:4]]
-    assert _STRIPE_STYLE in str(first_four[1])
-    assert first_four[0] != first_four[1]
-    assert first_four[0] == first_four[2]
-    assert [row.style for row in scrolled.rows[:3]] == first_four[1:4]
+    table = _table_of(db, row_window=(0, 4, _MANY_ROWS))
+    for row in table.rows[:4]:
+        assert "on " not in str(row.style)
 
 
-def test_spacer_and_total_rows_are_not_striped() -> None:
-    """The stripe only marks data rows, so the Total row still stands apart."""
+def test_rule_row_precedes_the_total_row() -> None:
+    """A ── rule row separates the Total from the data it summarises (A37)."""
     table = _table_of(_merged_db())
-    spacer, total = table.rows[-2], table.rows[-1]
-    assert _STRIPE_STYLE not in str(spacer.style)
+    rule, total = table.rows[-2], table.rows[-1]
+    folder_cells = list(table.columns[0].cells)
+    assert "─" in str(folder_cells[-2])  # the rule row's folder cell
     assert "bold" in str(total.style)
-    assert _STRIPE_STYLE not in str(total.style)
+    assert "on " not in str(rule.style)  # the rule is not a background fill
 
 
 def test_active_sort_column_is_highlighted() -> None:
@@ -609,22 +685,37 @@ def _ansi(style: str) -> str:
     return rendered[start:end]
 
 
-def test_one_shot_output_has_no_stripes_or_sort_highlight() -> None:
-    """Striping and the sort highlight are live-view only; one-shot is untouched."""
+def test_one_shot_output_has_no_sort_highlight() -> None:
+    """The sort highlight is live-view only; one-shot output carries no highlight."""
     snap = Snapshot(_merged_db(), _account(), "ok", _pace(), _NOW)
     console = Console(width=_CONSOLE_WIDTH, record=True)
     console.print(render_snapshot(snap, AppConfig()))
     styled = console.export_text(styles=True)
-    assert _ansi(_STRIPE_STYLE) not in styled
     assert _ansi(_SORT_COLUMN_STYLE) not in styled
     assert "cr ↓" in styled  # the pre-existing header arrow still shows
 
 
-def test_live_view_output_does_stripe_and_highlight() -> None:
-    """The same data in the live view carries both new visual cues."""
+def test_live_view_output_highlights_the_sorted_column() -> None:
+    """The live view carries the active-sort-column highlight."""
     snap = Snapshot(_merged_db(), _account(), "ok", _pace(), _NOW)
     console = Console(width=_CONSOLE_WIDTH, record=True)
     console.print(render_snapshot(snap, AppConfig(), frame=0, ui=LiveState()))
     styled = console.export_text(styles=True)
-    assert _ansi(_STRIPE_STYLE) in styled
     assert _ansi(_SORT_COLUMN_STYLE) in styled
+
+
+def test_no_bright_ansi_colour_is_ever_emitted() -> None:
+    """The palette never uses a bright_* colour as a foreground or a fill (A25/A26).
+
+    Bright ANSI variants (SGR 90-97 foreground, 100-107 background) are
+    high-luminance and collapse toward a light background - the design's
+    contrast root cause - so the render must not emit any of them.
+    """
+    snap = Snapshot(_merged_db(), _account(), "ok", _pace(), _NOW)
+    console = Console(width=_CONSOLE_WIDTH, record=True, color_system="standard")
+    console.print(render_snapshot(snap, AppConfig(), frame=0, ui=LiveState()))
+    styled = console.export_text(styles=True)
+    bright_codes = [str(n) for n in (*range(90, 98), *range(100, 108))]
+    emitted = re.findall(r"\x1b\[([0-9;]+)m", styled)
+    codes = {part for seq in emitted for part in seq.split(";")}
+    assert not codes.intersection(bright_codes)

@@ -22,6 +22,9 @@ echo "=== Dead Code Detection ==="
 echo "=== Code Quality Tests ==="
 tests/test_code_quality.sh
 
+echo "=== Palette Contrast Gate ==="
+uv run python tests/check_contrast.py
+
 echo "=== Dependency Vulnerability Audit ==="
 # --no-emit-project: the project itself exports as an editable install, which
 # has no single file to hash and so cannot satisfy --require-hashes. Auditing
