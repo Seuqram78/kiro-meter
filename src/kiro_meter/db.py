@@ -263,12 +263,19 @@ def _collapse_folder(folder: str, nesting: int) -> str:
     return str(Path(*parts[: offset + depth]))
 
 
-def max_folder_depth(rows: list[ConversationRow]) -> int:
-    """Return the deepest folder path (in real segments, anchor excluded) among rows.
+def max_displayed_folder_depth(by_folder_model: tuple[UsageRow, ...]) -> int:
+    """Return the deepest folder among the rows the usage table actually shows.
 
-    Returns 1 if there are no rows, so callers can always clamp a nesting
-    level to at least this value without a special-case for "empty".
+    The nesting control's ceiling must come from the displayed set, not from
+    every conversation on disk: ``by_folder_model`` is already filtered to the
+    billing cycle (the ``since`` cutoff in ``build_db_snapshot``), so a stale,
+    out-of-cycle folder that never renders as a row can't inflate the range
+    and leave the user stepping through nesting levels that redraw an
+    identical table. Returns 1 when there are no rows, so callers can always
+    clamp a nesting level to at least this value without a special case for
+    "empty".
     """
-    if not rows:
+    folders = [row.folder for row in by_folder_model]
+    if not folders:
         return _MIN_NESTING
-    return max((len(_path_names(r.folder)) or _MIN_NESTING) for r in rows)
+    return max((len(_path_names(folder)) or _MIN_NESTING) for folder in folders)

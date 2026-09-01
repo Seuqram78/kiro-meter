@@ -26,7 +26,7 @@ from kiro_meter.db import (
     build_db_snapshot,
     collapse_by_nesting,
     load_conversations,
-    max_folder_depth,
+    max_displayed_folder_depth,
 )
 from kiro_meter.interaction import LiveState, apply_key, normalize
 from kiro_meter.models import Snapshot
@@ -223,9 +223,9 @@ def run_live(
                     ui = _drain_keys(key_queue, ui)
                     if ui.quit:
                         break
-                    ui = normalize(ui, max_nesting=max_folder_depth(rows))
 
-                    db = _local_snapshot(rows, now, ctx.tz, account, ui.nesting)
+                    db = _local_snapshot(rows, now, ctx.tz, account)
+                    db, ui = _collapse_for_display(db, ui)
                     today_credits, today_flagged = _resolve_today(
                         db.today_credits, account, today_baseline
                     )
@@ -296,17 +296,32 @@ def _local_snapshot(
     now: datetime,
     tz: tzinfo,
     account: AccountInfo | None,
-    nesting: int,
 ) -> DbSnapshot:
-    """Aggregate cached rows, re-collapsed to `nesting` - no disk I/O involved.
+    """Aggregate cached rows into a snapshot - no disk I/O, no collapsing yet.
 
     Kept separate from ``build_snapshot`` (used by the one-shot path) because
-    nesting is display-only live-view state: cheap to re-collapse every tick
-    straight from the already-aggregated ``by_folder_model``.
+    nesting is display-only live-view state: the caller clamps the nesting
+    level to this snapshot's ``by_folder_model`` depth, then re-collapses it
+    every tick straight from the already-aggregated rows.
     """
     since = billing_cycle_start(account.next_reset) if account is not None else None
-    db = build_db_snapshot(rows, now=now, tz=tz, since=since)
-    return replace(db, by_folder_model=collapse_by_nesting(db.by_folder_model, nesting))
+    return build_db_snapshot(rows, now=now, tz=tz, since=since)
+
+
+def _collapse_for_display(
+    db: DbSnapshot, ui: LiveState
+) -> tuple[DbSnapshot, LiveState]:
+    """Clamp nesting to the displayed folder depth, then collapse the rows to it.
+
+    The ceiling comes from ``db.by_folder_model`` - the cycle-filtered rows the
+    table actually shows - so an out-of-cycle folder that never renders can't
+    stretch the range and force the user through no-op nesting steps. Returns
+    the collapsed snapshot and the clamped ``ui`` so the next tick decrements
+    from a real, in-range level rather than the ``FULL_NESTING`` sentinel.
+    """
+    ui = normalize(ui, max_nesting=max_displayed_folder_depth(db.by_folder_model))
+    collapsed = collapse_by_nesting(db.by_folder_model, ui.nesting)
+    return replace(db, by_folder_model=collapsed), ui
 
 
 def _read_keys(key_queue: queue.Queue[str], stop_event: threading.Event) -> None:

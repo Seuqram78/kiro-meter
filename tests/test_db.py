@@ -11,10 +11,10 @@ from kiro_meter.db import (
     build_db_snapshot,
     collapse_by_nesting,
     load_conversations,
-    max_folder_depth,
+    max_displayed_folder_depth,
     merge_models,
 )
-from kiro_meter.models import ConversationRow
+from kiro_meter.models import UsageRow
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -234,25 +234,54 @@ def test_nesting_sums_credits_across_collapsing_folders(
     assert by_key[("/home/team", "sonnet")] == (1, 0.30)  # model stays separate
 
 
-def test_max_folder_depth_empty_is_one() -> None:
+def test_max_displayed_folder_depth_empty_is_one() -> None:
     """An empty row list has a depth floor of 1, never 0."""
-    assert max_folder_depth([]) == 1
+    assert max_displayed_folder_depth(()) == 1
 
 
-def test_max_folder_depth_counts_segments_ignoring_leading_slash() -> None:
+def test_max_displayed_folder_depth_counts_segments_ignoring_leading_slash() -> None:
     """/a/b/c is 3 segments, not 4 (the leading slash doesn't count)."""
-    rows = [ConversationRow("id1", "/a/b/c", "m", 0.01, 0)]
-    assert max_folder_depth(rows) == _DEPTH_A_B_C
+    rows = (UsageRow("/a/b/c", "m", 1, 0.01),)
+    assert max_displayed_folder_depth(rows) == _DEPTH_A_B_C
 
 
-def test_max_folder_depth_is_the_deepest_row() -> None:
-    """The deepest folder among all rows wins."""
-    rows = [
-        ConversationRow("id1", "/a", "m", 0.01, 0),
-        ConversationRow("id2", "/a/b/c/d", "m", 0.01, 0),
-        ConversationRow("id3", "/a/b", "m", 0.01, 0),
-    ]
-    assert max_folder_depth(rows) == _DEPTH_A_B_C_D
+def test_max_displayed_folder_depth_is_the_deepest_row() -> None:
+    """The deepest folder among the displayed rows wins."""
+    rows = (
+        UsageRow("/a", "m", 1, 0.01),
+        UsageRow("/a/b/c/d", "m", 1, 0.01),
+        UsageRow("/a/b", "m", 1, 0.01),
+    )
+    assert max_displayed_folder_depth(rows) == _DEPTH_A_B_C_D
+
+
+def test_out_of_cycle_deep_folder_does_not_inflate_the_nesting_ceiling(
+    make_sessions: Callable[[list[ConversationSpec]], Path],
+) -> None:
+    """A deep folder outside the billing cycle never appears, so can't raise the bound.
+
+    Regression: the nesting ceiling once came from every conversation on disk,
+    so a stale 7-deep path (e.g. a /mnt/c/... WSL mount) that fell outside the
+    cycle's ``since`` cutoff - and so never rendered as a row - still stretched
+    the range, leaving the user stepping through no-op nesting levels. The
+    bound must come from the displayed (cycle-filtered) rows instead.
+    """
+    old = _ms(datetime(2026, 6, 1, tzinfo=UTC))
+    recent = _ms(_NOW)
+    sessions_dir = make_sessions(
+        [
+            ("old", "/mnt/c/Users/me/Workspace/Org/deep/proj", "haiku", 0.02, old),
+            ("new", "/home/me/proj", "haiku", 0.02, recent),
+        ],
+    )
+    since = datetime(2026, 7, 1, tzinfo=UTC)
+    by_folder_model = build_db_snapshot(
+        load_conversations(sessions_dir), now=_NOW, tz=UTC, since=since
+    ).by_folder_model
+
+    # Only the in-cycle 3-segment folder is displayed, so the ceiling is 3 -
+    # not the 6-segment depth of the excluded /mnt/c/... path.
+    assert max_displayed_folder_depth(by_folder_model) == _DEPTH_A_B_C
 
 
 def test_usage_rows_expose_named_fields(
