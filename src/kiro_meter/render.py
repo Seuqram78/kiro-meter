@@ -841,15 +841,38 @@ def _common_folder_prefix(rows: tuple[UsageRow, ...]) -> str:
     return str(Path(*shared))
 
 
-def _elide_prefix(folder: str, prefix: str) -> str:
-    """Strip a common ``prefix`` from ``folder``, marking the cut with ``…/``."""
-    if not prefix:
-        return folder
-    try:
-        relative = Path(folder).relative_to(prefix)
-    except ValueError:
-        return folder
-    return f"…/{relative}"
+def _folder_depth(folder: str) -> int:
+    """The folder's real segment depth (anchor excluded), a floor of 1 when bare."""
+    return len(_folder_names(folder)) or 1
+
+
+def _folder_names(folder: str) -> tuple[str, ...]:
+    """The real path segments of ``folder``, excluding any root/drive anchor."""
+    path = Path(folder)
+    return path.parts[1:] if path.anchor else path.parts
+
+
+def _folder_cell(folder: str, prefix: str) -> Text:
+    """The folder column cell: the elided head, then each tail segment depth-tagged.
+
+    The shared prefix is elided to a leading ``…/`` (and named once in the
+    title); every remaining segment then carries its own dim ``[<depth>]``
+    tag so the level each segment sits at is legible inline, e.g.
+    ``…/[4]proj/[5]sub/[6]leaf/``. The tags are dim so they read as gutter
+    markers between the segment names rather than competing with them.
+    """
+    names = _folder_names(folder)
+    prefix_depth = len(_folder_names(prefix)) if prefix else 0
+    tail = names[prefix_depth:] if prefix else names
+    text = Text()
+    if prefix and prefix_depth < len(names):
+        text.append("…/", style=STYLE_MUTED)
+    for offset, segment in enumerate(tail):
+        if offset:
+            text.append(" ")
+        text.append(f"[{prefix_depth + offset + 1}]", style=STYLE_MUTED)
+        text.append(f" {segment}/", style=STYLE_VALUE)
+    return text if tail else Text(f"{folder}/", style=STYLE_VALUE)
 
 
 def _data_cells(
@@ -859,7 +882,7 @@ def _data_cells(
     proportion = row.credits / peak if peak else 0.0
     share_pct = row.credits / total_credits * _PERCENT if total_credits else 0.0
     return {
-        "folder": _elide_prefix(row.folder, prefix),
+        "folder": _folder_cell(row.folder, prefix),
         "model": row.model,
         "share": Text(_proportion_bar(proportion, share_pct), style=_SHARE_STYLE),
         "pad": "",

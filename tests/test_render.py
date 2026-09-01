@@ -22,6 +22,7 @@ from kiro_meter.render import (
     _VISIBLE_ROWS,
     TableView,
     _bar,
+    _folder_cell,
     _usage_table,
     render_snapshot,
 )
@@ -466,16 +467,16 @@ def test_sort_folder_asc_groups_by_nesting_depth_before_alphabetical() -> None:
     """A shallower folder sorts first even when it's alphabetically later."""
     snap = Snapshot(_db_mixed_depth(), _account(), "ok", _pace(), _NOW)
     text, _ = _render_windowed(snap, ui=LiveState(sort="folder_asc"))
-    lines = [line for line in text.splitlines() if "/a/b/c" in line or "/z" in line]
-    assert "/z" in lines[0]  # depth 2 sorts before depth 4, despite "z" > "a"
+    lines = [line for line in text.splitlines() if "] c/" in line or "] z/" in line]
+    assert "] z/" in lines[0]  # depth 2 sorts before depth 4, despite "z" > "a"
 
 
 def test_sort_folder_desc_groups_by_nesting_depth_before_alphabetical() -> None:
     """The deepest folder sorts first in descending order, regardless of spelling."""
     snap = Snapshot(_db_mixed_depth(), _account(), "ok", _pace(), _NOW)
     text, _ = _render_windowed(snap, ui=LiveState(sort="folder_desc"))
-    lines = [line for line in text.splitlines() if "/a/b/c" in line or "/z" in line]
-    assert "/a/b/c" in lines[0]  # depth 4 sorts before depth 2
+    lines = [line for line in text.splitlines() if "] c/" in line or "] z/" in line]
+    assert "] c/" in lines[0]  # depth 4 sorts before depth 2
 
 
 def test_sort_cr_asc_reverses_credit_order() -> None:
@@ -516,7 +517,11 @@ def test_folder_column_is_not_truncated_on_wide_terminal() -> None:
     console = Console(width=160, record=True)
     console.print(render_snapshot(snap, AppConfig()))
     text = console.export_text()
-    assert long_folder in text
+    # The distinguishing leaf segment renders intact on a single line (folders
+    # are now depth-tagged segment-by-segment, so the raw slash path no longer
+    # appears verbatim); on a wide terminal it is neither truncated nor folded.
+    leaf = "a-genuinely-long-project-folder-name-for-testing/"
+    assert any(leaf in line for line in text.splitlines())
 
 
 def _merged_db() -> DbSnapshot:
@@ -719,3 +724,30 @@ def test_no_bright_ansi_colour_is_ever_emitted() -> None:
     emitted = re.findall(r"\x1b\[([0-9;]+)m", styled)
     codes = {part for seq in emitted for part in seq.split(";")}
     assert not codes.intersection(bright_codes)
+
+
+def test_folder_cell_tags_each_tail_segment_with_its_depth() -> None:
+    """A multi-segment tail depth-tags every segment inline, space-separated."""
+    cell = _folder_cell(
+        "/home/rodrigo/workspace/kiro-meter/src/deep",
+        "/home/rodrigo/workspace",
+    )
+    assert cell.plain == "…/[4] kiro-meter/ [5] src/ [6] deep/"
+
+
+def test_folder_cell_single_tail_segment_has_no_separator() -> None:
+    """A one-segment tail is just the marker, tag, name, and trailing slash."""
+    cell = _folder_cell("/home/rodrigo/workspace/kiro-meter", "/home/rodrigo/workspace")
+    assert cell.plain == "…/[4] kiro-meter/"
+
+
+def test_folder_cell_without_prefix_tags_from_the_root() -> None:
+    """With no shared prefix, every segment is tagged from depth 1, no cut marker."""
+    cell = _folder_cell("/home/me/proj", "")
+    assert cell.plain == "[1] home/ [2] me/ [3] proj/"
+
+
+def test_folder_cell_bare_folder_is_tagged_at_depth_one() -> None:
+    """A folder with a single segment (session-id fallback) is tagged [1]name/."""
+    cell = _folder_cell("bare-id", "")
+    assert cell.plain == "[1] bare-id/"
