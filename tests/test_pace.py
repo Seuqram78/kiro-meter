@@ -187,6 +187,31 @@ def test_projection_runout_is_none_without_spend() -> None:
     assert pace.projection_runout is None
 
 
+def test_projection_runout_is_none_when_credit_days_exceed_calendar_days() -> None:
+    """Conservative daily spend that doesn't exhaust credits before reset has no alarm.
+
+    When daily spend is below the safe budget, the credit-days exceeds calendar
+    days available, so no projection alarm is shown (fix for false positives).
+    Matches the real-world bug: 1156 cr remaining, 90 cr today, 9 days left.
+    90 * 9 = 810 cr < 1156 cr, so the user is safe. Before the fix, this
+    incorrectly projected a runout on Sep 30 (12.8 days from Sep 17).
+    """
+    remaining = 1156.04
+    used = 2000.0 - remaining
+    today_spend = 90.02
+    # With 9 calendar days left (today + 8), and 90.02 cr/day:
+    # 1156.04 / 90.02 = 12.8 days of credits
+    # 12.8 > 9, so no alarm should trigger
+    pace = compute_pace(
+        _account(used=used, limit=2000.0),
+        _db(today_spend),
+        AppConfig(),
+        now=datetime(2026, 9, 17, 16, 48, tzinfo=UTC),
+    )
+    # Projection should be None since we have more credit-days than calendar days
+    assert pace.projection_runout is None
+
+
 def _holidays_payload() -> list[dict[str, object]]:
     return [{"date": "2026-07-04", "global": True, "counties": None}]
 

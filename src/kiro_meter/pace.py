@@ -228,7 +228,11 @@ def compute_pace(
     )
     today_budget = _today_budget(account, extras.today_baseline, days_until)
     runout = _projection_runout(
-        remaining, db.today_credits, now=now, reset=account.next_reset
+        remaining,
+        db.today_credits,
+        now=now,
+        reset=account.next_reset,
+        days_until=days_until,
     )
 
     return PaceInfo(
@@ -253,6 +257,7 @@ def _projection_runout(
     *,
     now: datetime,
     reset: datetime,
+    days_until: int,
 ) -> datetime | None:
     """Project when credits are exhausted, or None when the trend lands before reset.
 
@@ -261,12 +266,18 @@ def _projection_runout(
     exhaust the remaining balance before the cycle resets, the projected date
     is returned; otherwise None (no alarm). A pace of zero or a non-positive
     remaining balance means no projection is meaningful.
+
+    Also returns None when the credit-days would extend past the calendar/working
+    days available, since that means the spending rate is sustainable.
     """
     if remaining <= 0:
         return now
     if today_credits <= 0:
         return None
     days_left = remaining / today_credits
+    # If we have more credit-days than calendar/working days available, we're safe
+    if days_left > days_until:
+        return None
     exhaustion = now + timedelta(days=days_left)
     return exhaustion if exhaustion < reset else None
 
