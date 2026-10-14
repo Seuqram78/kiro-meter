@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime, timedelta
 from io import BytesIO
 from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfo
@@ -16,8 +16,9 @@ from kiro_meter import cli
 from kiro_meter.app import RunContext
 from kiro_meter.db import load_conversations
 from kiro_meter.models import AppConfig, ConversationRow
-from kiro_meter.report import build_report, run_report
-from kiro_meter.report_render import _future_day, _heat_band, render_report
+from kiro_meter.pace import HolidayUnavailableError
+from kiro_meter.report import ReportSettings, build_report, run_report
+from kiro_meter.report_render import _forecast, _future_day, _heat_band, render_report
 from tests.conftest import account_info
 
 if TYPE_CHECKING:
@@ -29,10 +30,11 @@ if TYPE_CHECKING:
 _NOW = datetime(2026, 7, 20, 12, tzinfo=UTC)
 _MS = 1000
 _SELECTED_CREDITS = 25
-_LEAP_DAYS = 29
+_LEAP_DAYS = 21
 _TIMEZONE_CREDITS = 3
 _PROJECT_LABEL_SECTIONS = 2
-_JULY_DAYS = 31
+_JULY_DAYS = 23
+_FIRST_WEEKEND_DAY = 5
 _SESSION_CREDITS = 2
 _EXIT_CANCELLED = 130
 _EXIT_ARGUMENT_ERROR = 2
@@ -96,7 +98,11 @@ def test_escape_labels_and_distinguish_duplicate_names() -> None:
     rows.append(replace(rows[0], folder='/work/<script>"&', model_id="<img src=x>"))
     account = replace(account_info(), email="<script>alert(1)</script>")
     data = build_report(
-        rows, (2026, 7, 3), now=_NOW, tz=UTC, account_result=(account, "ok")
+        rows,
+        (2026, 7, 3),
+        now=_NOW,
+        tz=UTC,
+        settings=ReportSettings(account=account, account_status="ok"),
     )
     text = _pdf_text(render_report(data))
     assert "/work/one/api" in text
@@ -112,7 +118,11 @@ def test_capacity_zero_and_exhausted(used: float, limit: float) -> None:
     """Zero usage/limits never divide by zero; exhausted accounts show status."""
     account = replace(account_info(), used=used, limit=limit, fetched_at=_NOW)
     data = build_report(
-        [], (2026, 7, 1), now=_NOW, tz=UTC, account_result=(account, "ok")
+        [],
+        (2026, 7, 1),
+        now=_NOW,
+        tz=UTC,
+        settings=ReportSettings(account=account, account_status="ok"),
     )
     text = _pdf_text(render_report(data))
     assert "nan" not in text
@@ -129,11 +139,11 @@ def test_capacity_forecast_uses_official_cycle() -> None:
         (2026, 7, 1),
         now=_NOW,
         tz=UTC,
-        account_result=(account, "ok"),
+        settings=ReportSettings(account=account, account_status="ok"),
     )
     text = _pdf_text(render_report(data))
     assert "Estimated exhaustion" in text
-    assert "1,335.38 credits" in text
+    assert "1,380.00 credits" in text
     assert "10.00 credits" in text
 
 
@@ -267,12 +277,16 @@ def test_heatmap_fixed_colour_boundaries(amount: float, band: int) -> None:
     assert _heat_band(amount) == band
 
 
-def test_single_page_landscape_and_31_days() -> None:
-    """Approved layout keeps capacity, allocations, a spike, and all dates together."""
+def test_single_page_landscape_and_business_days() -> None:
+    """Capacity, allocations, a spike, and business dates remain on one page."""
     rows = [_row("/work/api", 600, 7, 13), _row("/work/web", 0.01, 7, 2)]
     account = replace(account_info(), used=840, limit=1000, fetched_at=_NOW)
     data = build_report(
-        rows, (2026, 7, 2), now=_NOW, tz=UTC, account_result=(account, "ok")
+        rows,
+        (2026, 7, 2),
+        now=_NOW,
+        tz=UTC,
+        settings=ReportSettings(account=account, account_status="ok"),
     )
     reader = PdfReader(BytesIO(render_report(data)))
     assert len(reader.pages) == 1
@@ -285,10 +299,10 @@ def test_single_page_landscape_and_31_days() -> None:
     assert "Daily total" in text
     assert "600.00" in text
     assert "0.01" in text
-    assert all(f"{day:02d}" in text.split() for day in range(1, _JULY_DAYS + 1))
+    assert all(f"{day.day:02d}" in text.split() for day in data.dates)
     assert "Recorded model" not in text
     normalized = " ".join(text.split())
-    assert "Project / day 01 W 02 T 03 F 04 S 05 S 06 M 07 T" in normalized
+    assert "Project / day 01 W 02 T 03 F 06 M 07 T" in normalized
 
 
 def test_future_dates_use_local_month_not_generation_day() -> None:
@@ -343,3 +357,75 @@ def test_report_rejects_conflicting_modes(flag: str) -> None:
     with pytest.raises(SystemExit) as error:
         cli.main(["-report", flag])
     assert error.value.code == _EXIT_ARGUMENT_ERROR
+
+
+class _ReportHolidays:
+    """Holiday fixture recording the country and region requested by the report."""
+
+    def __init__(self, excluded: set[date], *, unavailable: bool = False) -> None:
+        """Keep known holidays and optionally simulate a provider outage."""
+        self.excluded = excluded
+        self.unavailable = unavailable
+        self.calls: list[tuple[str, str | None]] = []
+
+    def working_days_between(
+        self, start: date, end: date, *, country: str, region: str | None
+    ) -> int:
+        """Count weekdays excluding the fixture's public holidays."""
+        self.calls.append((country, region))
+        if self.unavailable:
+            raise HolidayUnavailableError
+        days = (start + timedelta(days=offset) for offset in range((end - start).days))
+        return sum(
+            day.weekday() < _FIRST_WEEKEND_DAY and day not in self.excluded
+            for day in days
+        )
+
+
+def test_business_forecast_skips_weekends_and_holidays() -> None:
+    """Friday's capacity advances over business dates and regional holidays."""
+    now = datetime(2026, 7, 3, 12, tzinfo=UTC)
+    account = replace(account_info(), used=120, limit=240, fetched_at=now)
+    holidays = _ReportHolidays({date(2026, 7, 6)})
+    settings = ReportSettings(account, "ok", "AU", "AU-WA", holidays)
+    rows = [
+        _row("/work/api", 2, 7, 7),
+        _row("/work/api", 5, 7, 4),
+        _row("/work/api", 10, 7, 6),
+    ]
+    data = build_report(rows, (2026, 7, 2), now=now, tz=UTC, settings=settings)
+    facts = dict(_forecast(account, data))
+    assert facts["Estimated exhaustion"] == "09 Jul 2026"
+    assert facts["Before reset"] == "16 business days"
+    assert date(2026, 7, 4) not in data.dates
+    assert date(2026, 7, 6) not in data.dates
+    assert holidays.calls
+    assert set(holidays.calls) == {("AU", "AU-WA")}
+    assert "AU/AU-WA public holidays excluded" in data.calendar.coverage
+
+
+def test_business_allocations_exclude_weekend_and_holiday_credits() -> None:
+    """Local totals and heatmap contain the same business-day allocations."""
+    holidays = _ReportHolidays({date(2026, 7, 6)})
+    rows = [
+        _row("/work/api", 2, 7, 7),
+        _row("/work/api", 5, 7, 4),
+        _row("/work/api", 10, 7, 6),
+    ]
+    settings = ReportSettings(country="AU", region="AU-WA", holidays=holidays)
+    data = build_report(rows, (2026, 7, 2), now=_NOW, tz=UTC, settings=settings)
+    assert sum(row.credits for row in data.projects) == _SESSION_CREDITS
+    assert sum(row.credits for day in data.daily for row in day) == _SESSION_CREDITS
+    assert all(day.weekday() < _FIRST_WEEKEND_DAY for day in data.dates)
+
+
+def test_holiday_outage_falls_back_consistently() -> None:
+    """Failed holiday lookup labels a Monday-Friday fallback throughout the report."""
+    holidays = _ReportHolidays(set(), unavailable=True)
+    settings = ReportSettings(country="AU", holidays=holidays)
+    data = build_report(
+        [_row("/work/api", 2, 7, 6)], (2026, 7, 2), now=_NOW, tz=UTC, settings=settings
+    )
+    assert date(2026, 7, 6) in data.dates
+    assert all(day.weekday() < _FIRST_WEEKEND_DAY for day in data.dates)
+    assert "public holidays unavailable" in _pdf_text(render_report(data))

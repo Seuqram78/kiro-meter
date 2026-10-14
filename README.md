@@ -107,7 +107,7 @@ Project labels retain that folder path in the allocation table and daily heatmap
 The tool saves a uniquely named `kiro-usage-YYYY-MM-nN-TIMESTAMP.pdf` in the
 current directory and prints its path. It includes project allocation,
 a daily credit heatmap by project, and daily totals. The PDF uses a single
-16:9 page with narrow margins and all days of the selected month in one table.
+16:9 page with narrow margins and all business days of the month in one table.
 Day headings include weekday initials. Fixed colour
 bands (0, >0-10, >10-50, >50-100, >100-300, >300 credits) keep smaller days visible
 when one day has a large spike. Each cell shows exact credits; future dates show
@@ -115,7 +115,15 @@ a dash. Reports with many projects scale to fit the page, so text gets smaller.
 No browser or external assets are required.
 
 For the current month, the report also fetches official current billing-cycle
-capacity and estimates exhaustion using calendar-day average consumption.
+capacity and estimates exhaustion using average credits per elapsed business day.
+The report excludes weekends and uses the dashboard's configured country/region
+public holidays. "Before reset" counts business days after estimated exhaustion,
+excluding the reset date. Remaining demand starts on the next business day;
+the elapsed count includes today when it is a business day. If holidays cannot
+be loaded, the report uses Monday-Friday and labels the missing holiday coverage.
+Without a configured country, it uses Monday-Friday and states that holidays
+are not configured. Business-day reporting applies even if calendar pacing is
+selected for the live dashboard.
 That panel states its own cycle dates; billing cycles may differ from calendar
 months. Historical months contain local allocations only. `--no-account` skips
 the account call; `--timezone` controls month and day boundaries. Report mode
@@ -124,7 +132,9 @@ uses saved settings without running first-time setup.
 Local allocations are approximate: each session's cumulative credits follow
 its last update date and recorded model. Sessions spanning months or changing
 models can distort daily/monthly attribution. Zero heatmap cells mean no
-retained allocation, not confirmed inactivity. Deleted sessions and IDE usage
+retained business-day allocation, not confirmed inactivity. Official account
+totals include all usage, while local allocations omit weekends and holidays.
+Deleted sessions and IDE usage
 are absent. The report does not measure productivity or investment returns.
 
 ### Exit codes (`--once`)

@@ -39,7 +39,7 @@
     .source { font-size:10px; letter-spacing:.6px; text-transform:uppercase; color:var(--muted); white-space:nowrap; }
     .capacity { position:relative; height:17px; background:#edf1f2; border-radius:4px; margin:8px 0 30px; }
     .capacity .fill { height:100%; width:70%; background:var(--teal); border-radius:4px; }
-    .reference { position:absolute; left:61.3%; top:-5px; height:27px; border-left:2px solid #172b35; }
+    .reference { position:absolute; left:63.6%; top:-5px; height:27px; border-left:2px solid #172b35; }
     .legend { display:flex; gap:16px; font-size:11px; color:var(--muted); margin-bottom:19px; }
     .dot { display:inline-block; width:8px; height:8px; background:var(--teal); border-radius:2px; margin-right:5px; }
     .tick { display:inline-block; width:2px; height:10px; background:var(--ink); margin-right:5px; }
@@ -84,7 +84,7 @@
     <div>
       <div class="eyebrow">Kiro / License review</div>
       <h1>License usage report</h1>
-      <p class="muted">1–31 October 2026 · Usage through 20 October, 00:00 UTC</p>
+      <p class="muted">October 2026 · Business days only · Usage through 20 October, 00:00 UTC</p>
     </div>
     <div class="identity">
       <strong>alex.morgan@example.com</strong>
@@ -98,16 +98,16 @@
     <h2>Current consumption pace exceeds the cycle allowance</h2>
     <dl class="summary-facts">
       <div><dt>Allowance consumed</dt><dd>70%</dd></div>
-      <div><dt>Billing cycle elapsed</dt><dd>61%</dd></div>
+      <div><dt>Business cycle elapsed</dt><dd>63.6%</dd></div>
       <div><dt>Estimated exhaustion</dt><dd>28 October</dd></div>
-      <div><dt>Before reset</dt><dd>~4 days</dd></div>
+      <div><dt>Before reset</dt><dd>2 business days</dd></div>
     </dl>
   </div>
 
   <div class="metrics" aria-label="Official account usage">
     <div class="metric"><div class="label">Allowance consumed</div><div class="value">70<span>%</span></div><small>1,400 of 2,000 credits</small></div>
     <div class="metric"><div class="label">Credits remaining</div><div class="value">600</div><small>Until 1 November reset</small></div>
-    <div class="metric"><div class="label">Projected cycle demand</div><div class="value">2,284<span> cr</span></div><small>284 credits above allowance</small></div>
+    <div class="metric"><div class="label">Projected cycle demand</div><div class="value">2,200<span> cr</span></div><small>200 credits above allowance</small></div>
     <div class="metric"><div class="label">Overage consumed</div><div class="value">0<span> cr</span></div><small>Overage disabled</small></div>
   </div>
 
@@ -115,86 +115,68 @@
     <section aria-labelledby="capacity-title">
       <div class="section-heading"><h2 id="capacity-title">Capacity &amp; exposure</h2><span class="source">Official + estimated</span></div>
       <div class="capacity" role="img" aria-label="84 percent of credits consumed; 61 percent of calendar cycle elapsed"><div class="fill"></div><div class="reference"></div></div>
-      <div class="legend"><span><i class="dot"></i>Credits consumed · 70%</span><span><i class="tick"></i>Cycle elapsed · 61%</span></div>
+      <div class="legend"><span><i class="dot"></i>Credits consumed · 70%</span><span><i class="tick"></i>Business cycle elapsed · 63.6%</span></div>
       <dl>
-        <div><dt>Average consumption</dt><dd>73.7 credits / calendar day</dd></div>
-        <div><dt>Remaining daily capacity</dt><dd>50.0 credits / calendar day</dd></div>
+        <div><dt>Average consumption</dt><dd>100.0 credits / business day</dd></div>
+        <div><dt>Remaining daily capacity</dt><dd>75.0 credits / business day</dd></div>
         <div><dt>Estimated allowance exhaustion</dt><dd class="warning">28 October</dd></div>
         <div><dt>Next allowance reset</dt><dd>1 November</dd></div>
       </dl>
-      <p class="note">If demand continues at the same rate, the remaining allowance covers about 8.1 days. Overage is disabled, so no extra credit capacity is configured.</p>
+      <p class="note">If demand continues at the same rate, the remaining allowance covers 6 business days. Overage is disabled, so no extra credit capacity is configured.</p>
     </section>
 
     <section aria-labelledby="allocation-title">
       <div class="section-heading"><h2 id="allocation-title">Recorded project allocation</h2><span class="source">Local · approximate</span></div>
-      <div class="project"><div class="project-label"><strong>/work/payments-api</strong><span>992 cr · 74.0%</span></div><div class="track"><div style="width:74.0%"></div></div></div>
-      <div class="project"><div class="project-label"><strong>/work/customer-portal</strong><span>210 cr · 15.7%</span></div><div class="track"><div style="width:15.7%"></div></div></div>
-      <div class="project"><div class="project-label"><strong>/work/platform-infra</strong><span>96 cr · 7.2%</span></div><div class="track"><div style="width:7.2%"></div></div></div>
-      <div class="project"><div class="project-label"><strong>/work/developer-tooling</strong><span>42 cr · 3.1%</span></div><div class="track"><div style="width:3.1%"></div></div></div>
-      <p class="note">1,340 local CLI credits across 4 folder groups. Shares use the local total; folder names identify projects without establishing business priority or delivered outcomes.</p>
+      <div class="project"><div class="project-label"><strong>/work/payments-api</strong><span>944 cr · 74.4%</span></div><div class="track"><div style="width:74.4%"></div></div></div>
+      <div class="project"><div class="project-label"><strong>/work/customer-portal</strong><span>194 cr · 15.3%</span></div><div class="track"><div style="width:15.3%"></div></div></div>
+      <div class="project"><div class="project-label"><strong>/work/platform-infra</strong><span>90 cr · 7.1%</span></div><div class="track"><div style="width:7.1%"></div></div></div>
+      <div class="project"><div class="project-label"><strong>/work/developer-tooling</strong><span>40 cr · 3.2%</span></div><div class="track"><div style="width:3.2%"></div></div></div>
+      <p class="note">1,268 local CLI business-day credits across 4 folder groups. Shares use the local total; folder names identify projects without establishing business priority or delivered outcomes.</p>
     </section>
   </div>
 
   <section class="daily-usage" aria-labelledby="daily-title">
 <div class="section-heading"><h2 id="daily-title">Daily credits by project</h2><span class="source">Local · approximate</span></div>
-<p class="note">1–31 October 2026 · Usage through 20 October, 00:00 UTC</p>
+<p class="note">October 2026 · Business days only · Usage through 20 October, 00:00 UTC</p>
 <div class="heatmap-scroll"><table class="heatmap-grid"><thead><tr><th scope="col">Project / day</th>
 <th scope="col">01<span class="weekday">T</span></th>
 <th scope="col">02<span class="weekday">F</span></th>
-<th scope="col">03<span class="weekday">S</span></th>
-<th scope="col">04<span class="weekday">S</span></th>
 <th scope="col">05<span class="weekday">M</span></th>
 <th scope="col">06<span class="weekday">T</span></th>
 <th scope="col">07<span class="weekday">W</span></th>
 <th scope="col">08<span class="weekday">T</span></th>
 <th scope="col">09<span class="weekday">F</span></th>
-<th scope="col">10<span class="weekday">S</span></th>
-<th scope="col">11<span class="weekday">S</span></th>
 <th scope="col">12<span class="weekday">M</span></th>
 <th scope="col">13<span class="weekday">T</span></th>
 <th scope="col">14<span class="weekday">W</span></th>
 <th scope="col">15<span class="weekday">T</span></th>
 <th scope="col">16<span class="weekday">F</span></th>
-<th scope="col">17<span class="weekday">S</span></th>
-<th scope="col">18<span class="weekday">S</span></th>
 <th scope="col">19<span class="weekday">M</span></th>
 <th scope="col">20<span class="weekday">T</span></th>
 <th scope="col">21<span class="weekday">W</span></th>
 <th scope="col">22<span class="weekday">T</span></th>
 <th scope="col">23<span class="weekday">F</span></th>
-<th scope="col">24<span class="weekday">S</span></th>
-<th scope="col">25<span class="weekday">S</span></th>
 <th scope="col">26<span class="weekday">M</span></th>
 <th scope="col">27<span class="weekday">T</span></th>
 <th scope="col">28<span class="weekday">W</span></th>
 <th scope="col">29<span class="weekday">T</span></th>
 <th scope="col">30<span class="weekday">F</span></th>
-<th scope="col">31<span class="weekday">S</span></th>
 </tr></thead><tbody>
 <tr><th scope="row">/work/payments-api</th>
 <td style="background:#b5dccb;color:#172b35" title="/work/payments-api · 1 October · 18.00 credits">18.00</td>
 <td style="background:#b5dccb;color:#172b35" title="/work/payments-api · 2 October · 21.00 credits">21.00</td>
-<td style="background:#e0f0e9;color:#172b35" title="/work/payments-api · 3 October · 8.00 credits">8.00</td>
-<td style="background:#e0f0e9;color:#172b35" title="/work/payments-api · 4 October · 4.00 credits">4.00</td>
 <td style="background:#b5dccb;color:#172b35" title="/work/payments-api · 5 October · 25.00 credits">25.00</td>
 <td style="background:#b5dccb;color:#172b35" title="/work/payments-api · 6 October · 32.00 credits">32.00</td>
 <td style="background:#b5dccb;color:#172b35" title="/work/payments-api · 7 October · 28.00 credits">28.00</td>
 <td style="background:#b5dccb;color:#172b35" title="/work/payments-api · 8 October · 24.00 credits">24.00</td>
 <td style="background:#b5dccb;color:#172b35" title="/work/payments-api · 9 October · 36.00 credits">36.00</td>
-<td style="background:#b5dccb;color:#172b35" title="/work/payments-api · 10 October · 12.00 credits">12.00</td>
-<td style="background:#e0f0e9;color:#172b35" title="/work/payments-api · 11 October · 5.00 credits">5.00</td>
 <td style="background:#b5dccb;color:#172b35" title="/work/payments-api · 12 October · 35.00 credits">35.00</td>
 <td style="background:#18543e;color:#fff" title="/work/payments-api · 13 October · 600.00 credits">600.00</td>
 <td style="background:#b5dccb;color:#172b35" title="/work/payments-api · 14 October · 32.00 credits">32.00</td>
 <td style="background:#b5dccb;color:#172b35" title="/work/payments-api · 15 October · 28.00 credits">28.00</td>
 <td style="background:#b5dccb;color:#172b35" title="/work/payments-api · 16 October · 34.00 credits">34.00</td>
-<td style="background:#b5dccb;color:#172b35" title="/work/payments-api · 17 October · 13.00 credits">13.00</td>
-<td style="background:#e0f0e9;color:#172b35" title="/work/payments-api · 18 October · 6.00 credits">6.00</td>
 <td style="background:#b5dccb;color:#172b35" title="/work/payments-api · 19 October · 31.00 credits">31.00</td>
 <td style="background:#edf2f2;color:#172b35" title="/work/payments-api · 20 October · 0.00 credits">0.00</td>
-<td class="future" title="Future date">—</td>
-<td class="future" title="Future date">—</td>
-<td class="future" title="Future date">—</td>
 <td class="future" title="Future date">—</td>
 <td class="future" title="Future date">—</td>
 <td class="future" title="Future date">—</td>
@@ -207,27 +189,18 @@
 <tr><th scope="row">/work/customer-portal</th>
 <td style="background:#e0f0e9;color:#172b35" title="/work/customer-portal · 1 October · 10.00 credits">10.00</td>
 <td style="background:#b5dccb;color:#172b35" title="/work/customer-portal · 2 October · 13.00 credits">13.00</td>
-<td style="background:#e0f0e9;color:#172b35" title="/work/customer-portal · 3 October · 3.00 credits">3.00</td>
-<td style="background:#e0f0e9;color:#172b35" title="/work/customer-portal · 4 October · 2.00 credits">2.00</td>
 <td style="background:#b5dccb;color:#172b35" title="/work/customer-portal · 5 October · 17.00 credits">17.00</td>
 <td style="background:#b5dccb;color:#172b35" title="/work/customer-portal · 6 October · 15.00 credits">15.00</td>
 <td style="background:#b5dccb;color:#172b35" title="/work/customer-portal · 7 October · 13.00 credits">13.00</td>
 <td style="background:#b5dccb;color:#172b35" title="/work/customer-portal · 8 October · 19.00 credits">19.00</td>
 <td style="background:#b5dccb;color:#172b35" title="/work/customer-portal · 9 October · 13.00 credits">13.00</td>
-<td style="background:#e0f0e9;color:#172b35" title="/work/customer-portal · 10 October · 4.00 credits">4.00</td>
-<td style="background:#e0f0e9;color:#172b35" title="/work/customer-portal · 11 October · 2.00 credits">2.00</td>
 <td style="background:#b5dccb;color:#172b35" title="/work/customer-portal · 12 October · 17.00 credits">17.00</td>
 <td style="background:#b5dccb;color:#172b35" title="/work/customer-portal · 13 October · 19.00 credits">19.00</td>
 <td style="background:#b5dccb;color:#172b35" title="/work/customer-portal · 14 October · 20.00 credits">20.00</td>
 <td style="background:#b5dccb;color:#172b35" title="/work/customer-portal · 15 October · 15.00 credits">15.00</td>
 <td style="background:#e0f0e9;color:#172b35" title="/work/customer-portal · 16 October · 10.00 credits">10.00</td>
-<td style="background:#e0f0e9;color:#172b35" title="/work/customer-portal · 17 October · 3.00 credits">3.00</td>
-<td style="background:#e0f0e9;color:#172b35" title="/work/customer-portal · 18 October · 2.00 credits">2.00</td>
 <td style="background:#b5dccb;color:#172b35" title="/work/customer-portal · 19 October · 13.00 credits">13.00</td>
 <td style="background:#edf2f2;color:#172b35" title="/work/customer-portal · 20 October · 0.00 credits">0.00</td>
-<td class="future" title="Future date">—</td>
-<td class="future" title="Future date">—</td>
-<td class="future" title="Future date">—</td>
 <td class="future" title="Future date">—</td>
 <td class="future" title="Future date">—</td>
 <td class="future" title="Future date">—</td>
@@ -240,27 +213,18 @@
 <tr><th scope="row">/work/platform-infra</th>
 <td style="background:#e0f0e9;color:#172b35" title="/work/platform-infra · 1 October · 4.00 credits">4.00</td>
 <td style="background:#e0f0e9;color:#172b35" title="/work/platform-infra · 2 October · 6.00 credits">6.00</td>
-<td style="background:#e0f0e9;color:#172b35" title="/work/platform-infra · 3 October · 1.00 credits">1.00</td>
-<td style="background:#edf2f2;color:#172b35" title="/work/platform-infra · 4 October · 0.00 credits">0.00</td>
 <td style="background:#e0f0e9;color:#172b35" title="/work/platform-infra · 5 October · 8.00 credits">8.00</td>
 <td style="background:#e0f0e9;color:#172b35" title="/work/platform-infra · 6 October · 6.00 credits">6.00</td>
 <td style="background:#e0f0e9;color:#172b35" title="/work/platform-infra · 7 October · 4.00 credits">4.00</td>
 <td style="background:#e0f0e9;color:#172b35" title="/work/platform-infra · 8 October · 5.00 credits">5.00</td>
 <td style="background:#e0f0e9;color:#172b35" title="/work/platform-infra · 9 October · 7.00 credits">7.00</td>
-<td style="background:#e0f0e9;color:#172b35" title="/work/platform-infra · 10 October · 2.00 credits">2.00</td>
-<td style="background:#edf2f2;color:#172b35" title="/work/platform-infra · 11 October · 0.00 credits">0.00</td>
 <td style="background:#e0f0e9;color:#172b35" title="/work/platform-infra · 12 October · 8.00 credits">8.00</td>
 <td style="background:#b5dccb;color:#172b35" title="/work/platform-infra · 13 October · 14.00 credits">14.00</td>
 <td style="background:#e0f0e9;color:#172b35" title="/work/platform-infra · 14 October · 7.00 credits">7.00</td>
 <td style="background:#e0f0e9;color:#172b35" title="/work/platform-infra · 15 October · 6.00 credits">6.00</td>
 <td style="background:#e0f0e9;color:#172b35" title="/work/platform-infra · 16 October · 8.00 credits">8.00</td>
-<td style="background:#e0f0e9;color:#172b35" title="/work/platform-infra · 17 October · 2.00 credits">2.00</td>
-<td style="background:#e0f0e9;color:#172b35" title="/work/platform-infra · 18 October · 1.00 credits">1.00</td>
 <td style="background:#e0f0e9;color:#172b35" title="/work/platform-infra · 19 October · 7.00 credits">7.00</td>
 <td style="background:#edf2f2;color:#172b35" title="/work/platform-infra · 20 October · 0.00 credits">0.00</td>
-<td class="future" title="Future date">—</td>
-<td class="future" title="Future date">—</td>
-<td class="future" title="Future date">—</td>
 <td class="future" title="Future date">—</td>
 <td class="future" title="Future date">—</td>
 <td class="future" title="Future date">—</td>
@@ -273,27 +237,18 @@
 <tr><th scope="row">/work/developer-tooling</th>
 <td style="background:#e0f0e9;color:#172b35" title="/work/developer-tooling · 1 October · 2.00 credits">2.00</td>
 <td style="background:#e0f0e9;color:#172b35" title="/work/developer-tooling · 2 October · 3.00 credits">3.00</td>
-<td style="background:#edf2f2;color:#172b35" title="/work/developer-tooling · 3 October · 0.00 credits">0.00</td>
-<td style="background:#edf2f2;color:#172b35" title="/work/developer-tooling · 4 October · 0.00 credits">0.00</td>
 <td style="background:#e0f0e9;color:#172b35" title="/work/developer-tooling · 5 October · 3.00 credits">3.00</td>
 <td style="background:#e0f0e9;color:#172b35" title="/work/developer-tooling · 6 October · 2.00 credits">2.00</td>
 <td style="background:#e0f0e9;color:#172b35" title="/work/developer-tooling · 7 October · 7.00 credits">7.00</td>
 <td style="background:#e0f0e9;color:#172b35" title="/work/developer-tooling · 8 October · 2.00 credits">2.00</td>
 <td style="background:#e0f0e9;color:#172b35" title="/work/developer-tooling · 9 October · 3.00 credits">3.00</td>
-<td style="background:#e0f0e9;color:#172b35" title="/work/developer-tooling · 10 October · 1.00 credits">1.00</td>
-<td style="background:#edf2f2;color:#172b35" title="/work/developer-tooling · 11 October · 0.00 credits">0.00</td>
 <td style="background:#e0f0e9;color:#172b35" title="/work/developer-tooling · 12 October · 3.00 credits">3.00</td>
 <td style="background:#e0f0e9;color:#172b35" title="/work/developer-tooling · 13 October · 4.00 credits">4.00</td>
 <td style="background:#e0f0e9;color:#172b35" title="/work/developer-tooling · 14 October · 2.00 credits">2.00</td>
 <td style="background:#e0f0e9;color:#172b35" title="/work/developer-tooling · 15 October · 3.00 credits">3.00</td>
 <td style="background:#e0f0e9;color:#172b35" title="/work/developer-tooling · 16 October · 4.00 credits">4.00</td>
-<td style="background:#e0f0e9;color:#172b35" title="/work/developer-tooling · 17 October · 1.00 credits">1.00</td>
-<td style="background:#edf2f2;color:#172b35" title="/work/developer-tooling · 18 October · 0.00 credits">0.00</td>
 <td style="background:#e0f0e9;color:#172b35" title="/work/developer-tooling · 19 October · 2.00 credits">2.00</td>
 <td style="background:#edf2f2;color:#172b35" title="/work/developer-tooling · 20 October · 0.00 credits">0.00</td>
-<td class="future" title="Future date">—</td>
-<td class="future" title="Future date">—</td>
-<td class="future" title="Future date">—</td>
 <td class="future" title="Future date">—</td>
 <td class="future" title="Future date">—</td>
 <td class="future" title="Future date">—</td>
@@ -306,27 +261,18 @@
 <tr><th scope="row">Daily total</th>
 <td style="background:#b5dccb;color:#172b35" title="Daily total · 1 October · 34.00 credits">34.00</td>
 <td style="background:#b5dccb;color:#172b35" title="Daily total · 2 October · 43.00 credits">43.00</td>
-<td style="background:#b5dccb;color:#172b35" title="Daily total · 3 October · 12.00 credits">12.00</td>
-<td style="background:#e0f0e9;color:#172b35" title="Daily total · 4 October · 6.00 credits">6.00</td>
 <td style="background:#75b99e;color:#172b35" title="Daily total · 5 October · 53.00 credits">53.00</td>
 <td style="background:#75b99e;color:#172b35" title="Daily total · 6 October · 55.00 credits">55.00</td>
 <td style="background:#75b99e;color:#172b35" title="Daily total · 7 October · 52.00 credits">52.00</td>
 <td style="background:#b5dccb;color:#172b35" title="Daily total · 8 October · 50.00 credits">50.00</td>
 <td style="background:#75b99e;color:#172b35" title="Daily total · 9 October · 59.00 credits">59.00</td>
-<td style="background:#b5dccb;color:#172b35" title="Daily total · 10 October · 19.00 credits">19.00</td>
-<td style="background:#e0f0e9;color:#172b35" title="Daily total · 11 October · 7.00 credits">7.00</td>
 <td style="background:#75b99e;color:#172b35" title="Daily total · 12 October · 63.00 credits">63.00</td>
 <td style="background:#18543e;color:#fff" title="Daily total · 13 October · 637.00 credits">637.00</td>
 <td style="background:#75b99e;color:#172b35" title="Daily total · 14 October · 61.00 credits">61.00</td>
 <td style="background:#75b99e;color:#172b35" title="Daily total · 15 October · 52.00 credits">52.00</td>
 <td style="background:#75b99e;color:#172b35" title="Daily total · 16 October · 56.00 credits">56.00</td>
-<td style="background:#b5dccb;color:#172b35" title="Daily total · 17 October · 19.00 credits">19.00</td>
-<td style="background:#e0f0e9;color:#172b35" title="Daily total · 18 October · 9.00 credits">9.00</td>
 <td style="background:#75b99e;color:#172b35" title="Daily total · 19 October · 53.00 credits">53.00</td>
 <td style="background:#edf2f2;color:#172b35" title="Daily total · 20 October · 0.00 credits">0.00</td>
-<td class="future" title="Future date">—</td>
-<td class="future" title="Future date">—</td>
-<td class="future" title="Future date">—</td>
 <td class="future" title="Future date">—</td>
 <td class="future" title="Future date">—</td>
 <td class="future" title="Future date">—</td>
@@ -343,13 +289,13 @@
 <span style="background:#75b99e;color:#172b35">&gt;50-100</span>
 <span style="background:#348866;color:#fff">&gt;100-300</span>
 <span style="background:#18543e;color:#fff">&gt;300</span>
-</div><p class="note">Credits per cell · Fixed colour bands · — = future date · 20 October is partial</p>
-<p class="note">Daily attribution follows each session’s last update date.</p>
+</div><p class="note">Credits per cell · Fixed colour bands · — = future date · 20 October is partial · Business days only</p>
+<p class="note">Daily attribution follows each session’s last update date. Weekends excluded; public holidays not configured.</p>
 </section>
 
   <footer>
-    <p><strong>Coverage.</strong> Official account consumption: 1,400 credits. Recorded local CLI consumption: 1,340 credits. The 60-credit difference has no project attribution in this report. Local records exclude IDE activity and assign session totals to the last update date and recorded model; allocations are approximate.</p>
-    <p><strong>Forecast.</strong> Calendar-day estimate using 1,400 credits over 19 elapsed days in a 31-day cycle. Assumes unchanged demand. Cycle dates follow the reset date; historical trends, subscription price, delivery outcomes, and time savings are unavailable.</p>
+    <p><strong>Coverage.</strong> Official account consumption: 1,400 credits. Recorded local CLI business-day consumption: 1,268 credits. The 132-credit difference has no project attribution in this report. Local records exclude IDE activity and assign session totals to the last update date and recorded model; allocations are approximate.</p>
+    <p><strong>Forecast.</strong> Business-day estimate using 1,400 credits over 14 elapsed business days in a 22-business-day cycle. Assumes unchanged demand. Cycle dates follow the reset date; historical trends, subscription price, delivery outcomes, and time savings are unavailable.</p>
     <div class="footer-line"><span>Generated by kiro-meter · 20 October 2026, 00:00 UTC</span><span>Usage evidence for license review</span></div>
   </footer>
 </main>

@@ -46,7 +46,7 @@ def main(argv: list[str] | None = None) -> int:
         tz = ZoneInfo(cfg.timezone) if cfg.timezone else UTC
         holidays = (
             NagerHolidayProvider(client=client, cache_dir=CONFIG_PATH.parent)
-            if cfg.workdays and not args.report
+            if cfg.workdays
             else None
         )
         ctx = RunContext(
@@ -103,6 +103,7 @@ def _report_config(args: argparse.Namespace) -> AppConfig:
     cfg = load_config() or AppConfig()
     return dataclasses.replace(
         cfg,
+        workdays=True,
         use_account=cfg.use_account and not args.no_account,
         timezone=args.timezone or cfg.timezone,
     )

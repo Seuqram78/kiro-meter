@@ -5,7 +5,7 @@ from __future__ import annotations
 import calendar
 import sqlite3
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -19,6 +19,8 @@ from kiro_meter.db import (
     max_displayed_folder_depth,
     merge_models,
 )
+from kiro_meter.pace import billing_cycle_start
+from kiro_meter.report_days import BusinessCalendar, business_calendar
 from kiro_meter.report_render import render_report
 
 if TYPE_CHECKING:
@@ -26,8 +28,23 @@ if TYPE_CHECKING:
 
     from kiro_meter.app import RunContext
     from kiro_meter.models import AccountInfo, AppConfig, ConversationRow, UsageRow
+    from kiro_meter.pace import HolidayProvider
 
 _MS_PER_SECOND = 1000
+
+
+@dataclass(frozen=True)
+class ReportSettings:
+    """Account reading and the configured holiday calendar for one report."""
+
+    account: AccountInfo | None = None
+    account_status: str = "unavailable"
+    country: str | None = None
+    region: str | None = None
+    holidays: HolidayProvider | None = None
+
+
+_DEFAULT_SETTINGS = ReportSettings()
 
 
 @dataclass(frozen=True)
@@ -42,6 +59,8 @@ class ReportData:
     projects: tuple[UsageRow, ...]
     models: tuple[UsageRow, ...]
     daily: tuple[tuple[UsageRow, ...], ...]
+    dates: tuple[date, ...]
+    calendar: BusinessCalendar
     account: AccountInfo | None
     account_status: str
 
@@ -83,22 +102,26 @@ def build_report(
     *,
     now: datetime,
     tz: tzinfo,
-    account_result: tuple[AccountInfo | None, str] = (None, "unavailable"),
+    settings: ReportSettings = _DEFAULT_SETTINGS,
 ) -> ReportData:
     """Aggregate selected-month sessions at one nesting level, including zero days."""
     year, month, nesting = selection
+    calendar = _report_calendar(year, month, tz, settings)
+    dates = tuple(
+        day for day in calendar.days if (day.year, day.month) == (year, month)
+    )
     selected = [
         row
         for row in rows
         if (_row_time(row, tz).year, _row_time(row, tz).month) == (year, month)
         and row.updated_at_ms <= now.timestamp() * _MS_PER_SECOND
+        and _row_time(row, tz).date() in dates
     ]
     snapshot = build_db_snapshot(selected, now=now, tz=tz)
     models = collapse_by_nesting(snapshot.by_folder_model, nesting)
-    days = calendar.monthrange(year, month)[1]
     daily = []
-    for day in range(1, days + 1):
-        day_rows = [row for row in selected if _row_time(row, tz).day == day]
+    for day in dates:
+        day_rows = [row for row in selected if _row_time(row, tz).date() == day]
         day_snapshot = build_db_snapshot(day_rows, now=now, tz=tz)
         daily.append(
             merge_models(collapse_by_nesting(day_snapshot.by_folder_model, nesting))
@@ -112,7 +135,27 @@ def build_report(
         merge_models(models),
         models,
         tuple(daily),
-        *account_result,
+        dates,
+        calendar,
+        settings.account,
+        settings.account_status,
+    )
+
+
+def _report_calendar(
+    year: int, month: int, tz: tzinfo, settings: ReportSettings
+) -> BusinessCalendar:
+    """Use one calendar for the selected month and current billing cycle."""
+    start = date(year, month, 1)
+    end = start + timedelta(days=calendar.monthrange(year, month)[1])
+    if settings.account is not None:
+        account = settings.account
+        start = min(
+            start, billing_cycle_start(account.next_reset).astimezone(tz).date()
+        )
+        end = max(end, account.next_reset.astimezone(tz).date())
+    return business_calendar(
+        start, end, settings.country, settings.region, settings.holidays
     )
 
 
@@ -153,7 +196,7 @@ def _generate_report(
         (year, month, nesting),
         now=now,
         tz=ctx.tz,
-        account_result=(account, status),
+        settings=ReportSettings(account, status, cfg.country, cfg.region, ctx.holidays),
     )
     stamp = now.strftime("%Y%m%dT%H%M%S%fZ")
     output = Path.cwd() / f"kiro-usage-{year}-{month:02d}-n{nesting}-{stamp}.pdf"

@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import calendar
-from datetime import date, timedelta
+from datetime import date
 from html import escape
 from io import BytesIO
+from math import ceil
 from typing import TYPE_CHECKING
 
 from reportlab.graphics.shapes import Drawing, Rect
@@ -62,8 +63,6 @@ _WIDTH = _PAGE_WIDTH - _MARGIN * 2
 _METRIC_VALUE = ParagraphStyle(
     "metric-value", parent=_BODY, fontName="Helvetica-Bold", fontSize=12, leading=16
 )
-_MIN_FORECAST_DAYS = 0.5
-_SECONDS_PER_DAY = 86400
 
 
 def _number(value: float) -> str:
@@ -101,29 +100,32 @@ def _table(rows: list[list[object]], widths: list[float]) -> Table:
     return table
 
 
-def _forecast(account: AccountInfo) -> list[tuple[str, str]]:
-    """Generate capacity facts from official usage and calendar-day cycle pacing."""
-    start = billing_cycle_start(account.next_reset)
-    elapsed = (account.fetched_at - start).total_seconds() / _SECONDS_PER_DAY
-    duration = (account.next_reset - start).total_seconds() / _SECONDS_PER_DAY
-    facts = [("Calendar cycle elapsed", f"{elapsed / duration:.1%}")]
+def _forecast(account: AccountInfo, data: ReportData) -> list[tuple[str, str]]:
+    """Project demand and exhaustion over business dates, not calendar-day offsets."""
+    start = billing_cycle_start(account.next_reset).astimezone(data.timezone).date()
+    reset = account.next_reset.astimezone(data.timezone).date()
+    today = account.fetched_at.astimezone(data.timezone).date()
+    cycle = tuple(day for day in data.calendar.days if start <= day < reset)
+    elapsed = sum(day <= today for day in cycle)
+    future = tuple(day for day in cycle if day > today)
+    consumed = f"{elapsed / len(cycle):.1%}" if cycle else "Unavailable"
+    facts = [("Business cycle elapsed", consumed)]
     if account.used >= account.limit and account.limit > 0:
         return [*facts, ("Allowance status", "Exhausted")]
-    if elapsed < _MIN_FORECAST_DAYS or account.used <= 0 or account.limit <= 0:
+    if elapsed < 1 or account.used <= 0 or account.limit <= 0:
         return [*facts, ("Forecast", "Insufficient data")]
     average = account.used / elapsed
-    projected = average * duration
+    projected = average * len(cycle)
     facts.append(("Projected cycle demand", f"{_number(projected)} credits"))
     if projected <= account.limit:
         return [*facts, ("Current pace", "Within allowance")]
-    exhaustion = account.fetched_at + timedelta(
-        days=(account.limit - account.used) / average
-    )
-    gap = (account.next_reset - exhaustion).total_seconds() / _SECONDS_PER_DAY
+    covered_days = ceil((account.limit - account.used) / average)
+    exhaustion = future[covered_days - 1]
+    gap = len(future) - covered_days
     return [
         *facts,
         ("Estimated exhaustion", f"{exhaustion:%d %b %Y}"),
-        ("Before reset", f"~{gap:.1f} days"),
+        ("Before reset", f"{gap} business days"),
     ]
 
 
@@ -155,7 +157,7 @@ def _capacity(data: ReportData) -> list[Flowable]:
         ("Credits remaining", _number(max(account.limit - account.used, 0))),
         ("Overage consumed", f"{_number(account.overage_used)} credits"),
         ("Overage status", "Enabled" if account.overage_enabled else "Disabled"),
-        *_forecast(account),
+        *_forecast(account, data),
     ]
     cells = [
         [_text(label, _SMALL), _text(value, _METRIC_VALUE)] for label, value in facts
@@ -187,9 +189,9 @@ def _capacity(data: ReportData) -> list[Flowable]:
         metrics,
         Spacer(1, 5),
         _text(
-            "Forecast: average official credits per elapsed calendar day; "
-            "assumes unchanged demand. Billing-cycle dates may differ "
-            "from the selected calendar month.",
+            "Forecast: official credits per elapsed business day, including today when "
+            "it is a business day. Remaining demand starts on the next business day; "
+            "assumes unchanged demand. Official totals include all account usage.",
             _SMALL,
         ),
     ]
@@ -255,11 +257,11 @@ def _heat_row(
     """Build one project row, or the daily totals when folder is absent."""
     cells: list[object] = [_text(label, _SMALL)]
     backgrounds = []
-    for day, allocations in enumerate(data.daily, start=1):
+    for day, allocations in zip(data.dates, data.daily, strict=True):
         value = sum(
             row.credits for row in allocations if folder is None or row.folder == folder
         )
-        cell, color = _heat_date_cell(data, day, value)
+        cell, color = _heat_date_cell(data, day.day, value)
         cells.append(cell)
         backgrounds.append(color)
     return cells, backgrounds
@@ -270,13 +272,13 @@ def _heat_table(data: ReportData, labels: dict[str, str]) -> Table:
     header: list[object] = [_text("Project / day", _SMALL)]
     header.extend(
         [
-            _text(f"{day:02d}", _HEAT_TEXT),
+            _text(f"{day.day:02d}", _HEAT_TEXT),
             _text(
-                calendar.day_name[date(data.year, data.month, day).weekday()][0],
+                calendar.day_name[day.weekday()][0],
                 _HEAT_TEXT,
             ),
         ]
-        for day in range(1, len(data.daily) + 1)
+        for day in data.dates
     )
     heat_rows = [
         _heat_row(data, labels[row.folder], row.folder) for row in data.projects
@@ -336,10 +338,17 @@ def _future_day(data: ReportData, day: int) -> bool:
 
 def _heatmap(data: ReportData, labels: dict[str, str]) -> list[Flowable]:
     """Render the entire month in one table, using fixed colour bands."""
+    if not data.dates:
+        return [
+            _text("Daily credits by project", _HEADING),
+            _text("No business dates in the selected month.", _SMALL),
+        ]
     return [
         _text("Daily credits by project", _HEADING),
         _text(
-            f"1-{len(data.daily)} {calendar.month_name[data.month]} {data.year}", _SMALL
+            f"{calendar.month_name[data.month]} {data.year} / "
+            f"{len(data.dates)} business days / {data.calendar.coverage}",
+            _SMALL,
         ),
         Spacer(1, 5),
         _heat_table(data, labels),
@@ -372,12 +381,15 @@ def render_report(data: ReportData) -> bytes:
         _text("KIRO / LICENSE REVIEW", _SMALL),
         _text("License usage report", _TITLE),
         _text(f"{calendar.month_name[data.month]} {data.year} / {scope}"),
-        _text(f"{identity} / {tier} / Nesting level {data.nesting}", _SMALL),
+        _text(
+            f"{identity} / {tier} / Nesting level {data.nesting} / Business days only",
+            _SMALL,
+        ),
         *_capacity(data),
         _text("Recorded project allocation", _HEADING),
         _text(
             f"{_number(total)} credits / {len(data.projects)} folder groups / "
-            "Local, approximate",
+            "Local business-day usage, approximate",
             _SMALL,
         ),
         Spacer(1, 6),
@@ -396,7 +408,8 @@ def render_report(data: ReportData) -> bytes:
         ),
         _text("Data coverage", _HEADING),
         _text(
-            "Retained local CLI sessions only; IDE activity is excluded. "
+            "Retained local CLI business-day allocations only; weekends and configured "
+            "public holidays excluded. IDE activity is excluded. "
             "Cumulative session credits follow the last update date "
             "and recorded model. "
             "Sessions spanning months or switching models can distort daily/monthly "
