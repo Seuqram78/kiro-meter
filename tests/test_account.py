@@ -38,7 +38,6 @@ _OIDC_ROW = "kirocli:odic:token"
 def _token() -> KiroToken:
     return KiroToken(
         access_token=_FAKE_ACCESS,
-        refresh_token=_FAKE_REFRESH,
         profile_arn="arn:aws:codewhisperer:us-east-1:1:profile/X",
         expires_at=datetime(2026, 7, 28, 13, 0, tzinfo=UTC),
         region="us-east-1",

@@ -25,8 +25,6 @@ def db_snapshot() -> DbSnapshot:
     return DbSnapshot(
         today_credits=0.31,
         today_turns=18,
-        session_credits=0.12,
-        session_turns=6,
         burn_rate_per_min=0.02,
         by_folder_model=(
             UsageRow("/home/me/proj-a", "sonnet-4.5", 8, 0.21),
@@ -50,7 +48,6 @@ def account_info() -> AccountInfo:
         overage_rate=0.04,
         overage_enabled=False,
         next_reset=datetime(2026, 8, 1, tzinfo=UTC),
-        days_until_reset_api=3,
         currency="USD",
         fetched_at=_ACCOUNT_FETCHED_AT,
     )

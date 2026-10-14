@@ -308,8 +308,6 @@ def _db_many(count: int) -> DbSnapshot:
     return DbSnapshot(
         today_credits=0.31,
         today_turns=18,
-        session_credits=0.12,
-        session_turns=6,
         burn_rate_per_min=0.02,
         by_folder_model=rows,
         recent=(),
@@ -449,8 +447,6 @@ def _db_mixed_depth() -> DbSnapshot:
     return DbSnapshot(
         today_credits=0.31,
         today_turns=18,
-        session_credits=0.12,
-        session_turns=6,
         burn_rate_per_min=0.02,
         by_folder_model=(
             UsageRow(
@@ -506,8 +502,6 @@ def test_folder_column_is_not_truncated_on_wide_terminal() -> None:
     db = DbSnapshot(
         today_credits=0.31,
         today_turns=18,
-        session_credits=0.12,
-        session_turns=6,
         burn_rate_per_min=0.02,
         by_folder_model=(UsageRow(long_folder, "sonnet-4.5", 8, 0.21),),
         recent=(),
@@ -529,8 +523,6 @@ def _merged_db() -> DbSnapshot:
     return DbSnapshot(
         today_credits=0.31,
         today_turns=18,
-        session_credits=0.12,
-        session_turns=6,
         burn_rate_per_min=0.02,
         by_folder_model=(
             UsageRow("/home/me/proj-a", "sonnet-4.5", 8, 0.21),
@@ -659,7 +651,7 @@ def test_single_row_table_renders() -> None:
 
 def test_empty_table_with_breakdown_toggled_off_renders() -> None:
     """No usage rows at all, models merged: the table section is simply skipped."""
-    db = DbSnapshot(0.0, 0, 0.0, 0, None, (), (), approx=True)
+    db = DbSnapshot(0.0, 0, None, (), (), approx=True)
     snap = Snapshot(db, _account(), "ok", _pace(), _NOW)
     text, _ = _render_windowed(snap, ui=LiveState(by_model=False))
     assert "Total" not in text

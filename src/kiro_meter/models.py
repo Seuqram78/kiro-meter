@@ -8,9 +8,6 @@ from typing import TYPE_CHECKING, Literal, NamedTuple
 if TYPE_CHECKING:
     from datetime import datetime
 
-Provenance = Literal["official", "local", "local_approx", "unavailable"]
-"""Where a displayed figure came from and how much to trust it."""
-
 AccountStatus = Literal["ok", "needs_login", "disabled", "error"]
 """Outcome of trying to obtain the official account limit."""
 
@@ -22,7 +19,6 @@ PaceMode = Literal["calendar", "workday"]
 class ConversationRow:
     """One Kiro conversation's spend, as read from a local session file."""
 
-    conversation_id: str
     folder: str
     model_id: str | None
     credits: float
@@ -49,8 +45,6 @@ class DbSnapshot:
 
     today_credits: float
     today_turns: int
-    session_credits: float
-    session_turns: int
     burn_rate_per_min: float | None
     by_folder_model: tuple[UsageRow, ...]
     recent: tuple[ConversationRow, ...]
@@ -71,7 +65,6 @@ class AccountInfo:
     overage_rate: float
     overage_enabled: bool
     next_reset: datetime
-    days_until_reset_api: int
     currency: str
     fetched_at: datetime
 
@@ -104,7 +97,6 @@ class AppConfig:
     country: str | None = None
     region: str | None = None
     timezone: str | None = None
-    reset_hour: int = 0
 
 
 @dataclass(frozen=True)

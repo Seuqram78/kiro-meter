@@ -17,9 +17,7 @@ echo "=== Cognitive Complexity ==="
 uv run complexipy .
 
 echo "=== Dead Code Detection ==="
-# Scan project code, not installed dependencies. Dataclass fields can be used
-# indirectly, so enforce findings vulture identifies with 100% confidence.
-uv run vulture src/kiro_meter tests --min-confidence 100
+uv run vulture --config pyproject.toml
 
 echo "=== Code Quality Tests ==="
 tests/test_code_quality.sh

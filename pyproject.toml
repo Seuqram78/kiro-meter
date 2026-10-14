@@ -74,6 +74,10 @@ ignore = [
 [tool.ruff.lint.pydocstyle]
 convention = "google"
 
+[tool.vulture]
+paths = ["src/kiro_meter", "tests"]
+min_confidence = 60
+
 [tool.pytest.ini_options]
 addopts = "-q"
 testpaths = ["tests"]

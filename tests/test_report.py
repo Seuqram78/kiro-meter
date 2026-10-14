@@ -49,9 +49,7 @@ def _pdf_text(content: bytes) -> str:
 def _row(folder: str, amount: float, month: int, day: int) -> ConversationRow:
     """Build a session allocation with a fixed year and UTC timestamp."""
     updated = datetime(2026, month, day, tzinfo=UTC)
-    return ConversationRow(
-        folder, folder, "sonnet", amount, int(updated.timestamp() * _MS)
-    )
+    return ConversationRow(folder, "sonnet", amount, int(updated.timestamp() * _MS))
 
 
 def test_month_nesting_and_zero_filled_heatmap() -> None:
@@ -83,7 +81,7 @@ def test_month_nesting_and_zero_filled_heatmap() -> None:
 def test_historical_leap_month_and_timezone() -> None:
     """Selection uses local month boundaries and includes leap-day zero records."""
     timestamp = datetime(2024, 1, 31, 20, tzinfo=UTC)
-    row = ConversationRow("one", "/p", "model", 3, int(timestamp.timestamp() * _MS))
+    row = ConversationRow("/p", "model", 3, int(timestamp.timestamp() * _MS))
     data = build_report([row], (2024, 2, 1), now=_NOW, tz=ZoneInfo("Australia/Perth"))
     assert len(data.daily) == _LEAP_DAYS
     assert data.daily[0][0].credits == _TIMEZONE_CREDITS

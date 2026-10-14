@@ -39,14 +39,13 @@ def _account(used: float, limit: float) -> AccountInfo:
         overage_rate=0.0,
         overage_enabled=False,
         next_reset=datetime(2026, 8, 1, tzinfo=UTC),
-        days_until_reset_api=17,
         currency="USD",
         fetched_at=_NOW,
     )
 
 
 def _db(today: float) -> DbSnapshot:
-    return DbSnapshot(today, 1, today, 1, None, (), (), approx=True)
+    return DbSnapshot(today, 1, None, (), (), approx=True)
 
 
 def test_allowance_and_forecast_pace_calendar() -> None:

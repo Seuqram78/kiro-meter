@@ -95,7 +95,6 @@ def _parse_session(data: dict[str, object]) -> ConversationRow | None:
     model_id = model_info.get("model_id")
     cwd = data.get("cwd")
     return ConversationRow(
-        session_id,
         cwd or session_id,
         model_id,
         float(credit_total),
@@ -144,13 +143,10 @@ def build_db_snapshot(
     burn = (
         sum(r.credits for r in recent_rows) / burn_window_min if recent_rows else None
     )
-    session = max(rows, key=lambda r: r.updated_at_ms, default=None)
     ordered = sorted(rows, key=lambda r: r.updated_at_ms, reverse=True)
     return DbSnapshot(
         today_credits=sum(r.credits for r in today_rows),
         today_turns=len(today_rows),
-        session_credits=session.credits if session else 0.0,
-        session_turns=1 if session else 0,
         burn_rate_per_min=burn,
         by_folder_model=_by_folder_model(usage_rows),
         recent=tuple(ordered[:_DEFAULT_TOP_N]),

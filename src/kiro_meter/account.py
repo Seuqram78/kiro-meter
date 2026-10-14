@@ -52,7 +52,6 @@ class KiroToken:
     """
 
     access_token: str
-    refresh_token: str
     profile_arn: str
     expires_at: datetime
     region: str
@@ -83,10 +82,8 @@ def load_token(db_path: Path) -> KiroToken | None:
         conn.close()
     if not arn:
         return None
-    refresh = data.get("refresh_token")
     return KiroToken(
         access_token=str(data["access_token"]),
-        refresh_token=refresh if isinstance(refresh, str) else "",
         profile_arn=arn,
         expires_at=_parse_expiry(data.get("expires_at")),
         region=_region_from_arn(arn),
@@ -197,7 +194,6 @@ def _parse(data: dict[str, object], now: datetime) -> AccountInfo:
         next_reset=datetime.fromtimestamp(
             float(data.get("nextDateReset", 0.0)), tz=UTC
         ),
-        days_until_reset_api=int(data.get("daysUntilReset", 0)),
         currency=str(credit.get("currency", "USD")),
         fetched_at=now,
     )
