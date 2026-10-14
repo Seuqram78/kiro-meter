@@ -15,7 +15,13 @@ classifiers = [
   "Programming Language :: Python :: 3.14",
   "Topic :: Utilities",
 ]
-dependencies = ["rich>=13", "httpx>=0.27", "readchar>=4", "platformdirs>=4"]
+dependencies = [
+    "rich>=13",
+    "httpx>=0.27",
+    "readchar>=4",
+    "platformdirs>=4",
+    "reportlab>=5.0.1",
+]
 
 [project.urls]
 Homepage = "https://github.com/Seuqram78/kiro-meter"
@@ -39,7 +45,13 @@ source = "vcs"
 version-file = "src/kiro_meter/_version.py"
 
 [dependency-groups]
-dev = ["pytest>=8", "ruff>=0.6", "complexipy>=1", "pip-audit>=2"]
+dev = [
+    "pytest>=8",
+    "ruff>=0.6",
+    "complexipy>=1",
+    "pip-audit>=2",
+    "pypdf>=6.20.1",
+]
 
 [tool.ruff.lint]
 select = ["ALL"]

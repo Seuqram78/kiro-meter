@@ -21,6 +21,7 @@ from kiro_meter.config import (
 from kiro_meter.db import DEFAULT_DB_PATH, DEFAULT_SESSIONS_DIR
 from kiro_meter.models import AppConfig
 from kiro_meter.pace import HolidayUnavailableError, NagerHolidayProvider
+from kiro_meter.report import run_report
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -37,11 +38,15 @@ def main(argv: list[str] | None = None) -> int:
     """
     args = _parse_args(argv)
     with httpx.Client() as client:
-        cfg = _resolve_config(args, client=client)
+        cfg = (
+            _report_config(args)
+            if args.report
+            else _resolve_config(args, client=client)
+        )
         tz = ZoneInfo(cfg.timezone) if cfg.timezone else UTC
         holidays = (
             NagerHolidayProvider(client=client, cache_dir=CONFIG_PATH.parent)
-            if cfg.workdays
+            if cfg.workdays and not args.report
             else None
         )
         ctx = RunContext(
@@ -52,6 +57,8 @@ def main(argv: list[str] | None = None) -> int:
             holidays=holidays,
             state_db_path=DEFAULT_STATE_DB_PATH,
         )
+        if args.report:
+            return run_report(cfg, ctx, now=datetime.now(UTC))
         if args.once:
             return run_once(cfg, ctx, now=datetime.now(UTC), as_json=args.json)
         run_live(cfg, ctx, now_fn=lambda: datetime.now(UTC))
@@ -61,6 +68,12 @@ def main(argv: list[str] | None = None) -> int:
 def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     """Build the argument parser and parse ``argv``."""
     parser = argparse.ArgumentParser(prog="kiro-meter", description=__doc__)
+    parser.add_argument(
+        "-report",
+        "--report",
+        action="store_true",
+        help="choose year, month, and folder nesting; save a PDF report",
+    )
     parser.add_argument(
         "--once", action="store_true", help="print one snapshot and exit"
     )
@@ -76,9 +89,23 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
         "--reconfigure", action="store_true", help="re-run first-time setup"
     )
     parsed = parser.parse_args(argv)
+    if parsed.report and (parsed.once or parsed.json or parsed.reconfigure):
+        parser.error(
+            "--report cannot be combined with --once, --json, or --reconfigure"
+        )
     if parsed.json:
         parsed.once = True
     return parsed
+
+
+def _report_config(args: argparse.Namespace) -> AppConfig:
+    """Use saved settings without adding first-run questions to report prompts."""
+    cfg = load_config() or AppConfig()
+    return dataclasses.replace(
+        cfg,
+        use_account=cfg.use_account and not args.no_account,
+        timezone=args.timezone or cfg.timezone,
+    )
 
 
 def _resolve_config(args: argparse.Namespace, *, client: httpx.Client) -> AppConfig:

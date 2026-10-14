@@ -82,6 +82,7 @@ kiro-meter                 # live monitor (Ctrl-C to quit)
 kiro-meter --once          # print one snapshot and exit
 kiro-meter --json          # machine-readable snapshot (implies --once)
 kiro-meter --no-account    # local data only; skip the official-limit call
+kiro-meter -report         # choose year, month, nesting; generate a PDF report
 ```
 
 | Flag | Effect |
@@ -92,6 +93,37 @@ kiro-meter --no-account    # local data only; skip the official-limit call
 | `--refresh N` | Live refresh interval in seconds. |
 | `--timezone TZ` | Timezone for the "today" boundary (e.g. `America/Sao_Paulo`). Defaults to UTC if unset. |
 | `--reconfigure` | Re-run the first-time setup. |
+| `-report` / `--report` | Generate a standalone PDF license usage report. |
+
+### License usage report
+
+Run `kiro-meter -report`. Choose a year from the retained CLI sessions, a month
+within that year, and a folder nesting level from 1 through the maximum depth
+for that month's folders. Each nesting option previews the resulting groups.
+Depth counts from the filesystem root, just like the dashboard: `/work/api/src`
+at depth 2 belongs to `/work/api`.
+Project labels retain that folder path in allocation tables, chart legends,
+and model detail.
+
+The tool saves a uniquely named `kiro-usage-YYYY-MM-nN-TIMESTAMP.pdf` in the
+current directory and prints its path. It includes project allocation,
+daily credit lines by project,
+and model detail. Reports with many projects span multiple pages with repeated
+table headers and chart groups of up to six projects. No browser or external
+assets are required.
+
+For the current month, the report also fetches official current billing-cycle
+capacity and estimates exhaustion using calendar-day average consumption.
+That panel states its own cycle dates; billing cycles may differ from calendar
+months. Historical months contain local allocations only. `--no-account` skips
+the account call; `--timezone` controls month and day boundaries. Report mode
+uses saved settings without running first-time setup.
+
+Local allocations are approximate: each session's cumulative credits follow
+its last update date and recorded model. Sessions spanning months or changing
+models can distort daily/monthly attribution. Zero chart points mean no
+retained allocation, not confirmed inactivity. Deleted sessions and IDE usage
+are absent. The report does not measure productivity or investment returns.
 
 ### Exit codes (`--once`)
 
