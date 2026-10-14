@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import calendar
+from dataclasses import dataclass
 from datetime import date
 from html import escape
 from io import BytesIO
@@ -12,6 +13,7 @@ from typing import TYPE_CHECKING
 from reportlab.graphics.shapes import Drawing, Rect
 from reportlab.lib import colors
 from reportlab.lib.styles import ParagraphStyle
+from reportlab.pdfbase.pdfmetrics import stringWidth
 from reportlab.pdfgen.canvas import Canvas
 from reportlab.platypus import (
     Flowable,
@@ -36,33 +38,71 @@ _HEAT_COLORS = ("#edf2f2", "#e0f0e9", "#b5dccb", "#75b99e", "#348866", "#18543e"
 _HEAT_LABELS = ("0", ">0-10", ">10-50", ">50-100", ">100-300", ">300")
 _METRIC_COLUMNS = 5
 _MEASURE_HEIGHT = 1_000_000
-_HEAT_PATH_WIDTH = 190
+_MIN_PATH_WIDTH = 200
+_MAX_PATH_WIDTH = 360
+_MIN_DAY_WIDTH = 44
+_MIN_CONTENT_WIDTH = 800
+_FOOTER_HEIGHT = 18
 _HEAT_DARK_BAND = 4
 _HEAT_TEXT = ParagraphStyle(
-    "heat", fontName="Helvetica", fontSize=7, leading=9, alignment=1
+    "heat", fontName="Helvetica", fontSize=9, leading=12, alignment=1
 )
 _BODY = ParagraphStyle(
-    "body", fontName="Helvetica", fontSize=9, leading=13, textColor=_INK, wordWrap="CJK"
+    "body",
+    fontName="Helvetica",
+    fontSize=11,
+    leading=15,
+    textColor=_INK,
+    wordWrap="CJK",
 )
-_SMALL = ParagraphStyle("small", parent=_BODY, fontSize=7, leading=10, textColor=_MUTED)
+_SMALL = ParagraphStyle("small", parent=_BODY, fontSize=9, leading=12, textColor=_MUTED)
 _HEADING = ParagraphStyle(
     "heading",
     parent=_BODY,
     fontName="Helvetica-Bold",
-    fontSize=12,
-    leading=16,
+    fontSize=14,
+    leading=18,
     spaceBefore=7,
     spaceAfter=6,
     keepWithNext=True,
 )
 _TITLE = ParagraphStyle("title", parent=_HEADING, fontSize=23, leading=29)
-_PAGE_SIZE = (1280, 720)
-_PAGE_WIDTH, _PAGE_HEIGHT = _PAGE_SIZE
-_MARGIN = 18
-_WIDTH = _PAGE_WIDTH - _MARGIN * 2
+_MARGIN = 12
 _METRIC_VALUE = ParagraphStyle(
     "metric-value", parent=_BODY, fontName="Helvetica-Bold", fontSize=12, leading=16
 )
+
+
+@dataclass(frozen=True)
+class ReportLayout:
+    """Content width derived from readable paths, credit values, and date columns."""
+
+    width: float
+    path_width: float
+
+
+def _report_layout(data: ReportData) -> ReportLayout:
+    """Size columns to their content rather than squeezing them into a paper size."""
+    path_width = min(
+        _MAX_PATH_WIDTH,
+        max(
+            _MIN_PATH_WIDTH,
+            max(
+                (
+                    stringWidth(row.folder, "Helvetica", _SMALL.fontSize) + 16
+                    for row in data.projects
+                ),
+                default=0,
+            ),
+        ),
+    )
+    maximum = max((sum(row.credits for row in day) for day in data.daily), default=0)
+    day_width = max(
+        _MIN_DAY_WIDTH,
+        stringWidth(_number(maximum), "Helvetica", _HEAT_TEXT.fontSize) + 8,
+    )
+    width = max(_MIN_CONTENT_WIDTH, path_width + len(data.dates) * day_width)
+    return ReportLayout(width, path_width)
 
 
 def _number(value: float) -> str:
@@ -129,7 +169,7 @@ def _forecast(account: AccountInfo, data: ReportData) -> list[tuple[str, str]]:
     ]
 
 
-def _capacity(data: ReportData) -> list[Flowable]:
+def _capacity(data: ReportData, layout: ReportLayout) -> list[Flowable]:
     """Keep official current-cycle capacity separate from selected-month allocations."""
     account = data.account
     if account is None:
@@ -167,7 +207,9 @@ def _capacity(data: ReportData) -> list[Flowable]:
         cells[index : index + _METRIC_COLUMNS]
         for index in range(0, len(cells), _METRIC_COLUMNS)
     ]
-    metrics = Table(metric_rows, colWidths=[_WIDTH / _METRIC_COLUMNS] * _METRIC_COLUMNS)
+    metrics = Table(
+        metric_rows, colWidths=[layout.width / _METRIC_COLUMNS] * _METRIC_COLUMNS
+    )
     metrics.setStyle(
         TableStyle(
             [
@@ -197,7 +239,9 @@ def _capacity(data: ReportData) -> list[Flowable]:
     ]
 
 
-def _allocation(data: ReportData, labels: dict[str, str]) -> Table:
+def _allocation(
+    data: ReportData, labels: dict[str, str], layout: ReportLayout
+) -> Table:
     """Render every folder group with credits, local share, and a proportional bar."""
     total = sum(row.credits for row in data.projects)
     rows: list[list[object]] = [
@@ -227,7 +271,15 @@ def _allocation(data: ReportData, labels: dict[str, str]) -> Table:
             "",
         ]
     )
-    return _table(rows, [_WIDTH * 0.42, _WIDTH * 0.18, _WIDTH * 0.17, _WIDTH * 0.23])
+    return _table(
+        rows,
+        [
+            layout.width * 0.42,
+            layout.width * 0.18,
+            layout.width * 0.17,
+            layout.width * 0.23,
+        ],
+    )
 
 
 def _heat_band(value: float) -> int:
@@ -267,7 +319,9 @@ def _heat_row(
     return cells, backgrounds
 
 
-def _heat_table(data: ReportData, labels: dict[str, str]) -> Table:
+def _heat_table(
+    data: ReportData, labels: dict[str, str], layout: ReportLayout
+) -> Table:
     """Render all project rows and month columns in one heatmap table."""
     header: list[object] = [_text("Project / day", _SMALL)]
     header.extend(
@@ -290,8 +344,8 @@ def _heat_table(data: ReportData, labels: dict[str, str]) -> Table:
         for row, (_, backgrounds) in enumerate(heat_rows, start=1)
         for column, color in enumerate(backgrounds, start=1)
     ]
-    day_width = (_WIDTH - _HEAT_PATH_WIDTH) / len(data.daily)
-    table = _table(rows, [_HEAT_PATH_WIDTH, *([day_width] * len(data.daily))])
+    day_width = (layout.width - layout.path_width) / len(data.daily)
+    table = _table(rows, [layout.path_width, *([day_width] * len(data.daily))])
     table.setStyle(
         TableStyle(
             [
@@ -306,7 +360,7 @@ def _heat_table(data: ReportData, labels: dict[str, str]) -> Table:
     return table
 
 
-def _heat_legend() -> Table:
+def _heat_legend(layout: ReportLayout) -> Table:
     """Explain fixed colour intervals, including fractional positive usage."""
     cells = [
         Paragraph(
@@ -316,7 +370,7 @@ def _heat_legend() -> Table:
         )
         for index, label in enumerate(_HEAT_LABELS)
     ]
-    table = Table([cells], colWidths=[_WIDTH / len(cells)] * len(cells))
+    table = Table([cells], colWidths=[layout.width / len(cells)] * len(cells))
     table.setStyle(
         TableStyle(
             [
@@ -336,7 +390,9 @@ def _future_day(data: ReportData, day: int) -> bool:
     )
 
 
-def _heatmap(data: ReportData, labels: dict[str, str]) -> list[Flowable]:
+def _heatmap(
+    data: ReportData, labels: dict[str, str], layout: ReportLayout
+) -> list[Flowable]:
     """Render the entire month in one table, using fixed colour bands."""
     if not data.dates:
         return [
@@ -351,26 +407,27 @@ def _heatmap(data: ReportData, labels: dict[str, str]) -> list[Flowable]:
             _SMALL,
         ),
         Spacer(1, 5),
-        _heat_table(data, labels),
+        _heat_table(data, labels, layout),
         Spacer(1, 8),
-        _heat_legend(),
+        _heat_legend(layout),
         _text("Credits per cell / fixed colour bands / — = future date", _SMALL),
     ]
 
 
-def _page_footer(canvas: Canvas) -> None:
-    """Stamp the report footer outside the scaled content area."""
+def _page_footer(canvas: Canvas, width: float) -> None:
+    """Stamp the footer below the measured content."""
     canvas.saveState()
     canvas.setFont("Helvetica", 7)
     canvas.setFillColor(_MUTED)
     canvas.drawString(_MARGIN, 8, "kiro-meter / License usage report")
-    canvas.drawRightString(_PAGE_WIDTH - _MARGIN, 8, f"Page {canvas.getPageNumber()}")
+    canvas.drawRightString(width - _MARGIN, 8, f"Page {canvas.getPageNumber()}")
     canvas.restoreState()
 
 
 def render_report(data: ReportData) -> bytes:
     """Build a PDF in memory, with no browser, HTML files, or network assets."""
     labels = _labels(data)
+    layout = _report_layout(data)
     local_now = data.generated_at.astimezone(data.timezone)
     current = (data.year, data.month) == (local_now.year, local_now.month)
     scope = "Month to date" if current else "Retained month records"
@@ -385,7 +442,7 @@ def render_report(data: ReportData) -> bytes:
             f"{identity} / {tier} / Nesting level {data.nesting} / Business days only",
             _SMALL,
         ),
-        *_capacity(data),
+        *_capacity(data, layout),
         _text("Recorded project allocation", _HEADING),
         _text(
             f"{_number(total)} credits / {len(data.projects)} folder groups / "
@@ -393,13 +450,13 @@ def render_report(data: ReportData) -> bytes:
             _SMALL,
         ),
         Spacer(1, 6),
-        _allocation(data, labels),
+        _allocation(data, labels, layout),
         _text(
             f"Project = working directory collapsed to nesting level {data.nesting}, "
             "counted from the filesystem root. Shares use the local monthly total.",
             _SMALL,
         ),
-        *_heatmap(data, labels),
+        *_heatmap(data, labels, layout),
         _text(
             f"Daily attribution uses session last-update dates in {data.timezone}. "
             "Zero means no retained allocation, not confirmed inactivity. "
@@ -424,32 +481,30 @@ def render_report(data: ReportData) -> bytes:
         ),
     ]
     buffer = BytesIO()
-    canvas = Canvas(buffer, pagesize=_PAGE_SIZE)
+    canvas = Canvas(buffer)
     canvas.setTitle(
         f"Kiro license usage / {calendar.month_name[data.month]} {data.year}"
     )
     canvas.setAuthor("kiro-meter")
-    _draw_single_page(canvas, story)
-    _page_footer(canvas)
+    _draw_single_page(canvas, story, layout.width)
+    _page_footer(canvas, layout.width + _MARGIN * 2)
     canvas.showPage()
     canvas.save()
     return buffer.getvalue()
 
 
-def _draw_single_page(canvas: Canvas, story: list[Flowable]) -> None:
-    """Measure the full report and scale it uniformly to fit one landscape page."""
+def _draw_single_page(canvas: Canvas, story: list[Flowable], width: float) -> None:
+    """Grow the PDF page to the measured content; never shrink fonts or tables."""
     measured = [
-        (item, item.wrapOn(canvas, _WIDTH, _MEASURE_HEIGHT)[1]) for item in story
+        (item, item.wrapOn(canvas, width, _MEASURE_HEIGHT)[1]) for item in story
     ]
     height = sum(
         item.getSpaceBefore() + size + item.getSpaceAfter() for item, size in measured
     )
-    available = _PAGE_HEIGHT - _MARGIN * 2
-    scale = min(1.0, available / height)
+    canvas.setPageSize((width + _MARGIN * 2, height + _MARGIN * 2 + _FOOTER_HEIGHT))
     canvas.saveState()
-    canvas.translate(_MARGIN + _WIDTH * (1 - scale) / 2, _MARGIN)
-    canvas.scale(scale, scale)
-    y = available / scale
+    canvas.translate(_MARGIN, _MARGIN + _FOOTER_HEIGHT)
+    y = height
     for item, size in measured:
         y -= item.getSpaceBefore() + size
         item.drawOn(canvas, 0, y)

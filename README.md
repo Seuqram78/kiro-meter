@@ -107,11 +107,12 @@ Project labels retain that folder path in the allocation table and daily heatmap
 The tool saves a uniquely named `kiro-usage-YYYY-MM-nN-TIMESTAMP.pdf` in the
 current directory and prints its path. It includes project allocation,
 a daily credit heatmap by project, and daily totals. The PDF uses a single
-16:9 page with narrow margins and all business days of the month in one table.
+page sized to its content, with small margins and all business days in one table.
 Day headings include weekday initials. Fixed colour
 bands (0, >0-10, >10-50, >50-100, >100-300, >300 credits) keep smaller days visible
 when one day has a large spike. Each cell shows exact credits; future dates show
-a dash. Reports with many projects scale to fit the page, so text gets smaller.
+a dash. More dates or wider values increase the page width; more projects
+increase its height. Text and tables keep their font sizes, with no shrink-to-fit.
 No browser or external assets are required.
 
 For the current month, the report also fetches official current billing-cycle

@@ -234,7 +234,7 @@ def test_session_loader_used_by_report(
 
 
 def test_many_projects_fit_one_page_without_losing_detail() -> None:
-    """Large reports scale uniformly onto one page and preserve every project."""
+    """Large reports grow the page height and preserve every project."""
     rows = [_row(f"/work/project-{index:02d}", index + 1, 7, 1) for index in range(40)]
     data = build_report(rows, (2026, 7, 2), now=_NOW, tz=UTC)
     content = render_report(data)
@@ -292,7 +292,6 @@ def test_single_page_landscape_and_business_days() -> None:
     assert len(reader.pages) == 1
     page = reader.pages[0]
     assert page.mediabox.width > page.mediabox.height
-    assert float(page.mediabox.width / page.mediabox.height) == pytest.approx(16 / 9)
     text = page.extract_text()
     assert "Current billing-cycle capacity" in text
     assert "Recorded project allocation" in text
@@ -429,3 +428,41 @@ def test_holiday_outage_falls_back_consistently() -> None:
     assert date(2026, 7, 6) in data.dates
     assert all(day.weekday() < _FIRST_WEEKEND_DAY for day in data.dates)
     assert "public holidays unavailable" in _pdf_text(render_report(data))
+
+
+def test_report_grows_without_scaling_text() -> None:
+    """More projects increase page height while preserving text's drawing scale."""
+    rows = [_row(f"/work/project-{index:02d}", index + 1, 7, 1) for index in range(40)]
+    short = build_report(rows[:1], (2026, 7, 2), now=_NOW, tz=UTC)
+    long = build_report(rows, (2026, 7, 2), now=_NOW, tz=UTC)
+    short_page = PdfReader(BytesIO(render_report(short))).pages[0]
+    long_reader = PdfReader(BytesIO(render_report(long)))
+    assert len(long_reader.pages) == 1
+    long_page = long_reader.pages[0]
+    assert long_page.mediabox.height > short_page.mediabox.height
+    assert long_page.mediabox.width == short_page.mediabox.width
+    scales: list[tuple[float, float]] = []
+
+    def capture(
+        text: str,
+        matrix: list[float],
+        _text_matrix: list[float],
+        _font: object,
+        _font_size: float,
+    ) -> None:
+        """Capture project labels' actual PDF transformation matrices."""
+        if "/work/project-" in text:
+            scales.append((matrix[0], matrix[3]))
+
+    long_page.extract_text(visitor_text=capture)
+    assert scales
+    assert set(scales) == {(1.0, 1.0)}
+
+
+def test_report_width_follows_business_date_count() -> None:
+    """Different monthly business calendars produce different page widths."""
+    july = build_report([], (2026, 7, 1), now=_NOW, tz=UTC)
+    february = build_report([], (2024, 2, 1), now=_NOW, tz=UTC)
+    july_page = PdfReader(BytesIO(render_report(july))).pages[0]
+    february_page = PdfReader(BytesIO(render_report(february))).pages[0]
+    assert july_page.mediabox.width > february_page.mediabox.width

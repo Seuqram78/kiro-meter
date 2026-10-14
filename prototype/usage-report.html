@@ -8,7 +8,7 @@
     :root { color-scheme: light; --ink:#172b35; --muted:#607079; --line:#dce4e7; --teal:#147d79; --amber:#986014; }
     * { box-sizing:border-box; }
     body { margin:0; background:#eef2f3; color:var(--ink); font:14px/1.5 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
-    main { max-width:1600px; margin:12px auto; padding:18px; background:white; border:1px solid var(--line); border-radius:12px; box-shadow:0 12px 40px #172b3509; }
+    main { width:1168px; margin:12px auto; padding:12px; background:white; border:1px solid var(--line); border-radius:12px; box-shadow:0 12px 40px #172b3509; }
     header { display:flex; justify-content:space-between; gap:24px; padding-bottom:25px; border-bottom:1px solid var(--line); }
     .eyebrow { font-size:11px; font-weight:750; letter-spacing:1.6px; text-transform:uppercase; color:var(--teal); }
     h1 { font-size:30px; line-height:1.2; letter-spacing:-1px; margin:8px 0 10px; }
@@ -60,7 +60,7 @@
     .weekday { display:block; font-size:9px; line-height:14px; color:var(--muted); }
     .heatmap-grid th { text-align:center; font-size:10px; padding:7px 2px; border:0; }
     .heatmap-grid th:first-child { text-align:left; width:180px; max-width:180px; overflow-wrap:anywhere; padding-right:10px; }
-    .heatmap-grid td { min-width:0; padding:8px 2px; text-align:center; font-size:9px; border:0; border-radius:3px; }
+    .heatmap-grid td { min-width:44px; padding:8px 2px; text-align:center; font-size:11px; border:0; border-radius:3px; }
     .heatmap-grid .future { background:#f7f9f9; color:#9aa6ac; }
     .heatmap-grid tbody tr:last-child th { font-weight:750; }
     .heatmap-legend { display:flex; gap:2px; margin-top:18px; max-width:780px; }
@@ -75,7 +75,7 @@
     footer p+p { margin-top:7px; }
     .footer-line { display:flex; justify-content:space-between; gap:16px; margin-top:14px; font-size:10px; }
     @media(max-width:720px) { main { margin:0; padding:25px; border:0; border-radius:0; } header { flex-direction:column; } .identity { text-align:left; } .columns { grid-template-columns:1fr; } .summary-facts { grid-template-columns:1fr 1fr; } .metrics { grid-template-columns:1fr 1fr; gap:20px; } .metric:nth-child(3) { border:0; padding-left:0; } .footer-line { flex-direction:column; gap:4px; } }
-    @media print { @page { size:1280pt 720pt; margin:12mm; } body { background:white; font-size:11px; } main { margin:0; max-width:none; padding:0; border:0; box-shadow:none; } h1 { font-size:25px; } .summary { margin:18px 0; padding:15px 18px; } .metrics { margin:20px 0; } .metric .value { font-size:24px; } .columns { gap:25px; } .daily-usage { margin-top:18px; padding-top:16px; } footer { margin-top:18px; } details { display:none; } section,.summary,.metrics,footer { break-inside:avoid; } * { print-color-adjust:exact; -webkit-print-color-adjust:exact; } }
+    @media print { @page { margin:8px; } body { background:white; font-size:11px; } main { margin:0; max-width:none; padding:0; border:0; box-shadow:none; } h1 { font-size:25px; } .summary { margin:18px 0; padding:15px 18px; } .metrics { margin:20px 0; } .metric .value { font-size:24px; } .columns { gap:25px; } .daily-usage { margin-top:18px; padding-top:16px; } footer { margin-top:18px; } details { display:none; } section,.summary,.metrics,footer { break-inside:avoid; } * { print-color-adjust:exact; -webkit-print-color-adjust:exact; } }
   </style>
 </head>
 <body>
