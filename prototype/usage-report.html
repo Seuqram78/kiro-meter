@@ -8,7 +8,7 @@
     :root { color-scheme: light; --ink:#172b35; --muted:#607079; --line:#dce4e7; --teal:#147d79; --amber:#986014; }
     * { box-sizing:border-box; }
     body { margin:0; background:#eef2f3; color:var(--ink); font:14px/1.5 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
-    main { max-width:1040px; margin:40px auto; padding:42px 48px; background:white; border:1px solid var(--line); border-radius:12px; box-shadow:0 12px 40px #172b3509; }
+    main { max-width:1700px; margin:24px auto; padding:28px 36px; background:white; border:1px solid var(--line); border-radius:12px; box-shadow:0 12px 40px #172b3509; }
     header { display:flex; justify-content:space-between; gap:24px; padding-bottom:25px; border-bottom:1px solid var(--line); }
     .eyebrow { font-size:11px; font-weight:750; letter-spacing:1.6px; text-transform:uppercase; color:var(--teal); }
     h1 { font-size:30px; line-height:1.2; letter-spacing:-1px; margin:8px 0 10px; }
@@ -19,14 +19,14 @@
     .identity strong { display:block; }
     .badge { display:inline-block; border-radius:20px; padding:4px 10px; font-size:11px; font-weight:650; background:#f1f4f5; }
     .identity .badge { margin-top:9px; }
-    .summary { margin:26px 0; padding:21px 23px; border:1px solid #e8d9bd; border-left:4px solid #b47c29; border-radius:7px; background:#fcf9f2; }
+    .summary { margin:18px 0; padding:14px 20px; border:1px solid #e8d9bd; border-left:4px solid #b47c29; border-radius:7px; background:#fcf9f2; }
     .summary h2 { color:#7b4f14; margin:7px 0 9px; font-size:20px; }
     .summary p { max-width:780px; }
     .summary-facts { display:grid; grid-template-columns:repeat(4,1fr); gap:18px; margin-top:14px; }
     .summary-facts dt { font-size:11px; color:#7b4f14; }
     .summary-facts dd { margin-top:3px; text-align:left; font-size:18px; font-weight:700; }
     .summary-facts div { padding:0; border:0; display:block; }
-    .metrics { display:grid; grid-template-columns:repeat(4,1fr); gap:0; margin:26px 0 30px; }
+    .metrics { display:grid; grid-template-columns:repeat(4,1fr); gap:0; margin:18px 0 22px; }
     .metric { padding:0 20px; border-left:1px solid var(--line); }
     .metric:first-child { padding-left:0; border:0; }
     .metric .label { color:var(--muted); font-size:12px; }
@@ -38,7 +38,7 @@
     .section-heading { display:flex; justify-content:space-between; align-items:baseline; gap:10px; }
     .source { font-size:10px; letter-spacing:.6px; text-transform:uppercase; color:var(--muted); white-space:nowrap; }
     .capacity { position:relative; height:17px; background:#edf1f2; border-radius:4px; margin:8px 0 30px; }
-    .capacity .fill { height:100%; width:84%; background:var(--teal); border-radius:4px; }
+    .capacity .fill { height:100%; width:70%; background:var(--teal); border-radius:4px; }
     .reference { position:absolute; left:61.3%; top:-5px; height:27px; border-left:2px solid #172b35; }
     .legend { display:flex; gap:16px; font-size:11px; color:var(--muted); margin-bottom:19px; }
     .dot { display:inline-block; width:8px; height:8px; background:var(--teal); border-radius:2px; margin-right:5px; }
@@ -54,21 +54,27 @@
     .track { height:8px; background:#edf1f2; border-radius:3px; }
     .track div { height:100%; background:#479792; border-radius:3px; }
     .note { font-size:11px; color:var(--muted); margin-top:13px; }
-    .daily-usage { margin-top:28px; padding-top:22px; border-top:1px solid var(--line); }
-    .daily-chart { display:block; width:100%; height:auto; }
-    .chart-legend { display:flex; flex-wrap:wrap; gap:12px 24px; font-size:11px; color:var(--muted); }
-    .chart-legend i { display:inline-block; width:16px; height:3px; margin-right:7px; vertical-align:middle; }
+    .daily-usage { margin-top:20px; padding-top:16px; border-top:1px solid var(--line); }
+    .heatmap-scroll { overflow-x:auto; }
+    .heatmap-grid { width:auto; table-layout:fixed; border-collapse:separate; border-spacing:2px; font-variant-numeric:tabular-nums; }
+    .heatmap-grid th { text-align:center; font-size:10px; padding:7px 2px; border:0; }
+    .heatmap-grid th:first-child { text-align:left; min-width:180px; max-width:180px; overflow-wrap:anywhere; padding-right:10px; }
+    .heatmap-grid td { min-width:40px; padding:8px 2px; text-align:center; font-size:9px; border:0; border-radius:3px; }
+    .heatmap-grid .future { background:#f7f9f9; color:#9aa6ac; }
+    .heatmap-grid tbody tr:last-child th { font-weight:750; }
+    .heatmap-legend { display:flex; gap:2px; margin-top:18px; max-width:780px; }
+    .heatmap-legend span { flex:1; text-align:center; padding:5px; font-size:10px; border-radius:3px; }
     details { margin-top:25px; border-top:1px solid var(--line); padding-top:17px; }
     summary { cursor:pointer; font-weight:650; font-size:12px; }
     table { width:100%; border-collapse:collapse; font-size:12px; margin-top:12px; }
     th,td { text-align:left; padding:9px 8px; border-bottom:1px solid var(--line); }
     th { color:var(--muted); font-size:11px; font-weight:600; }
     th:last-child,td:last-child { text-align:right; }
-    footer { margin-top:26px; padding-top:17px; border-top:1px solid var(--line); font-size:11px; color:var(--muted); }
+    footer { margin-top:18px; padding-top:12px; border-top:1px solid var(--line); font-size:11px; color:var(--muted); }
     footer p+p { margin-top:7px; }
     .footer-line { display:flex; justify-content:space-between; gap:16px; margin-top:14px; font-size:10px; }
     @media(max-width:720px) { main { margin:0; padding:25px; border:0; border-radius:0; } header { flex-direction:column; } .identity { text-align:left; } .columns { grid-template-columns:1fr; } .summary-facts { grid-template-columns:1fr 1fr; } .metrics { grid-template-columns:1fr 1fr; gap:20px; } .metric:nth-child(3) { border:0; padding-left:0; } .footer-line { flex-direction:column; gap:4px; } }
-    @media print { @page { size:A4; margin:12mm; } body { background:white; font-size:11px; } main { margin:0; max-width:none; padding:0; border:0; box-shadow:none; } h1 { font-size:25px; } .summary { margin:18px 0; padding:15px 18px; } .metrics { margin:20px 0; } .metric .value { font-size:24px; } .columns { gap:25px; } .daily-usage { margin-top:18px; padding-top:16px; } footer { margin-top:18px; } details { display:none; } section,.summary,.metrics,footer { break-inside:avoid; } * { print-color-adjust:exact; -webkit-print-color-adjust:exact; } }
+    @media print { @page { size:A3 landscape; margin:12mm; } body { background:white; font-size:11px; } main { margin:0; max-width:none; padding:0; border:0; box-shadow:none; } h1 { font-size:25px; } .summary { margin:18px 0; padding:15px 18px; } .metrics { margin:20px 0; } .metric .value { font-size:24px; } .columns { gap:25px; } .daily-usage { margin-top:18px; padding-top:16px; } footer { margin-top:18px; } details { display:none; } section,.summary,.metrics,footer { break-inside:avoid; } * { print-color-adjust:exact; -webkit-print-color-adjust:exact; } }
   </style>
 </head>
 <body>
@@ -81,7 +87,7 @@
     </div>
     <div class="identity">
       <strong>alex.morgan@example.com</strong>
-      <span class="muted">Kiro Pro · 1,000-credit allowance</span><br>
+      <span class="muted">Kiro Pro · 2,000-credit allowance</span><br>
       <span class="badge">Cycle to date</span>
     </div>
   </header>
@@ -90,17 +96,17 @@
     <div class="eyebrow" style="color:#986014">Capacity review</div>
     <h2>Current consumption pace exceeds the cycle allowance</h2>
     <dl class="summary-facts">
-      <div><dt>Allowance consumed</dt><dd>84%</dd></div>
+      <div><dt>Allowance consumed</dt><dd>70%</dd></div>
       <div><dt>Billing cycle elapsed</dt><dd>61%</dd></div>
-      <div><dt>Estimated exhaustion</dt><dd>23 October</dd></div>
-      <div><dt>Before reset</dt><dd>~9 days</dd></div>
+      <div><dt>Estimated exhaustion</dt><dd>28 October</dd></div>
+      <div><dt>Before reset</dt><dd>~4 days</dd></div>
     </dl>
   </div>
 
   <div class="metrics" aria-label="Official account usage">
-    <div class="metric"><div class="label">Allowance consumed</div><div class="value">84<span>%</span></div><small>840 of 1,000 credits</small></div>
-    <div class="metric"><div class="label">Credits remaining</div><div class="value">160</div><small>Until 1 November reset</small></div>
-    <div class="metric"><div class="label">Projected cycle demand</div><div class="value">1,371<span> cr</span></div><small>371 credits above allowance</small></div>
+    <div class="metric"><div class="label">Allowance consumed</div><div class="value">70<span>%</span></div><small>1,400 of 2,000 credits</small></div>
+    <div class="metric"><div class="label">Credits remaining</div><div class="value">600</div><small>Until 1 November reset</small></div>
+    <div class="metric"><div class="label">Projected cycle demand</div><div class="value">2,284<span> cr</span></div><small>284 credits above allowance</small></div>
     <div class="metric"><div class="label">Overage consumed</div><div class="value">0<span> cr</span></div><small>Overage disabled</small></div>
   </div>
 
@@ -108,149 +114,241 @@
     <section aria-labelledby="capacity-title">
       <div class="section-heading"><h2 id="capacity-title">Capacity &amp; exposure</h2><span class="source">Official + estimated</span></div>
       <div class="capacity" role="img" aria-label="84 percent of credits consumed; 61 percent of calendar cycle elapsed"><div class="fill"></div><div class="reference"></div></div>
-      <div class="legend"><span><i class="dot"></i>Credits consumed · 84%</span><span><i class="tick"></i>Cycle elapsed · 61%</span></div>
+      <div class="legend"><span><i class="dot"></i>Credits consumed · 70%</span><span><i class="tick"></i>Cycle elapsed · 61%</span></div>
       <dl>
-        <div><dt>Average consumption</dt><dd>44.2 credits / calendar day</dd></div>
-        <div><dt>Remaining daily capacity</dt><dd>13.3 credits / calendar day</dd></div>
-        <div><dt>Estimated allowance exhaustion</dt><dd class="warning">23 October</dd></div>
+        <div><dt>Average consumption</dt><dd>73.7 credits / calendar day</dd></div>
+        <div><dt>Remaining daily capacity</dt><dd>50.0 credits / calendar day</dd></div>
+        <div><dt>Estimated allowance exhaustion</dt><dd class="warning">28 October</dd></div>
         <div><dt>Next allowance reset</dt><dd>1 November</dd></div>
       </dl>
-      <p class="note">If demand continues at the same rate, the remaining allowance covers about 3.6 days. Overage is disabled, so no extra credit capacity is configured.</p>
+      <p class="note">If demand continues at the same rate, the remaining allowance covers about 8.1 days. Overage is disabled, so no extra credit capacity is configured.</p>
     </section>
 
     <section aria-labelledby="allocation-title">
       <div class="section-heading"><h2 id="allocation-title">Recorded project allocation</h2><span class="source">Local · approximate</span></div>
-      <div class="project"><div class="project-label"><strong>/work/payments-api</strong><span>432 cr · 55.4%</span></div><div class="track"><div style="width:55.4%"></div></div></div>
-      <div class="project"><div class="project-label"><strong>/work/customer-portal</strong><span>210 cr · 26.9%</span></div><div class="track"><div style="width:26.9%"></div></div></div>
-      <div class="project"><div class="project-label"><strong>/work/platform-infra</strong><span>96 cr · 12.3%</span></div><div class="track"><div style="width:12.3%"></div></div></div>
-      <div class="project"><div class="project-label"><strong>/work/developer-tooling</strong><span>42 cr · 5.4%</span></div><div class="track"><div style="width:5.4%"></div></div></div>
-      <p class="note">780 local CLI credits across 4 folder groups. Shares use the local total; folder names identify projects without establishing business priority or delivered outcomes.</p>
+      <div class="project"><div class="project-label"><strong>/work/payments-api</strong><span>992 cr · 74.0%</span></div><div class="track"><div style="width:74.0%"></div></div></div>
+      <div class="project"><div class="project-label"><strong>/work/customer-portal</strong><span>210 cr · 15.7%</span></div><div class="track"><div style="width:15.7%"></div></div></div>
+      <div class="project"><div class="project-label"><strong>/work/platform-infra</strong><span>96 cr · 7.2%</span></div><div class="track"><div style="width:7.2%"></div></div></div>
+      <div class="project"><div class="project-label"><strong>/work/developer-tooling</strong><span>42 cr · 3.1%</span></div><div class="track"><div style="width:3.1%"></div></div></div>
+      <p class="note">1,340 local CLI credits across 4 folder groups. Shares use the local total; folder names identify projects without establishing business priority or delivered outcomes.</p>
     </section>
   </div>
 
   <section class="daily-usage" aria-labelledby="daily-title">
-    <div class="section-heading"><h2 id="daily-title">Daily credits by project</h2><span class="source">Local · approximate</span></div>
-    <svg class="daily-chart" viewBox="0 0 900 230" role="img" aria-labelledby="chart-title chart-desc">
-    <title id="chart-title">Daily credits by project, 1–19 October 2026</title>
-    <desc id="chart-desc">Four project lines showing daily credits. Payments API is the largest consumer. Series sum to 780 local credits.</desc>
-    <line x1="45" y1="185" x2="875" y2="185" stroke="#e5ebed"/><text x="32" y="189" text-anchor="end" fill="#607079" font-size="11">0</text>
-    <line x1="45" y1="155" x2="875" y2="155" stroke="#e5ebed"/><text x="32" y="159" text-anchor="end" fill="#607079" font-size="11">10</text>
-    <line x1="45" y1="125" x2="875" y2="125" stroke="#e5ebed"/><text x="32" y="129" text-anchor="end" fill="#607079" font-size="11">20</text>
-    <line x1="45" y1="95" x2="875" y2="95" stroke="#e5ebed"/><text x="32" y="99" text-anchor="end" fill="#607079" font-size="11">30</text>
-    <line x1="45" y1="65" x2="875" y2="65" stroke="#e5ebed"/><text x="32" y="69" text-anchor="end" fill="#607079" font-size="11">40</text>
-    <line x1="45" y1="35" x2="875" y2="35" stroke="#e5ebed"/><text x="32" y="39" text-anchor="end" fill="#607079" font-size="11">50</text>
-    <text x="45" y="17" fill="#607079" font-size="11">Credits / day</text>
-    <text x="45.0" y="211" text-anchor="middle" fill="#607079" font-size="11">01 Oct</text>
-    <text x="183.3" y="211" text-anchor="middle" fill="#607079" font-size="11">04 Oct</text>
-    <text x="321.7" y="211" text-anchor="middle" fill="#607079" font-size="11">07 Oct</text>
-    <text x="460.0" y="211" text-anchor="middle" fill="#607079" font-size="11">10 Oct</text>
-    <text x="598.3" y="211" text-anchor="middle" fill="#607079" font-size="11">13 Oct</text>
-    <text x="736.7" y="211" text-anchor="middle" fill="#607079" font-size="11">16 Oct</text>
-    <text x="875.0" y="211" text-anchor="middle" fill="#607079" font-size="11">19 Oct</text>
-    <polyline points="45.0,131.0 91.1,122.0 137.2,161.0 183.3,173.0 229.4,110.0 275.6,89.0 321.7,101.0 367.8,113.0 413.9,77.0 460.0,149.0 506.1,170.0 552.2,80.0 598.3,65.0 644.4,89.0 690.6,101.0 736.7,83.0 782.8,146.0 828.9,167.0 875.0,92.0" fill="none" stroke="#147d79" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
-    <circle cx="45.0" cy="131.0" r="3" fill="#147d79"><title>/work/payments-api · 1 October · 18 credits</title></circle>
-    <circle cx="91.1" cy="122.0" r="3" fill="#147d79"><title>/work/payments-api · 2 October · 21 credits</title></circle>
-    <circle cx="137.2" cy="161.0" r="3" fill="#147d79"><title>/work/payments-api · 3 October · 8 credits</title></circle>
-    <circle cx="183.3" cy="173.0" r="3" fill="#147d79"><title>/work/payments-api · 4 October · 4 credits</title></circle>
-    <circle cx="229.4" cy="110.0" r="3" fill="#147d79"><title>/work/payments-api · 5 October · 25 credits</title></circle>
-    <circle cx="275.6" cy="89.0" r="3" fill="#147d79"><title>/work/payments-api · 6 October · 32 credits</title></circle>
-    <circle cx="321.7" cy="101.0" r="3" fill="#147d79"><title>/work/payments-api · 7 October · 28 credits</title></circle>
-    <circle cx="367.8" cy="113.0" r="3" fill="#147d79"><title>/work/payments-api · 8 October · 24 credits</title></circle>
-    <circle cx="413.9" cy="77.0" r="3" fill="#147d79"><title>/work/payments-api · 9 October · 36 credits</title></circle>
-    <circle cx="460.0" cy="149.0" r="3" fill="#147d79"><title>/work/payments-api · 10 October · 12 credits</title></circle>
-    <circle cx="506.1" cy="170.0" r="3" fill="#147d79"><title>/work/payments-api · 11 October · 5 credits</title></circle>
-    <circle cx="552.2" cy="80.0" r="3" fill="#147d79"><title>/work/payments-api · 12 October · 35 credits</title></circle>
-    <circle cx="598.3" cy="65.0" r="3" fill="#147d79"><title>/work/payments-api · 13 October · 40 credits</title></circle>
-    <circle cx="644.4" cy="89.0" r="3" fill="#147d79"><title>/work/payments-api · 14 October · 32 credits</title></circle>
-    <circle cx="690.6" cy="101.0" r="3" fill="#147d79"><title>/work/payments-api · 15 October · 28 credits</title></circle>
-    <circle cx="736.7" cy="83.0" r="3" fill="#147d79"><title>/work/payments-api · 16 October · 34 credits</title></circle>
-    <circle cx="782.8" cy="146.0" r="3" fill="#147d79"><title>/work/payments-api · 17 October · 13 credits</title></circle>
-    <circle cx="828.9" cy="167.0" r="3" fill="#147d79"><title>/work/payments-api · 18 October · 6 credits</title></circle>
-    <circle cx="875.0" cy="92.0" r="3" fill="#147d79"><title>/work/payments-api · 19 October · 31 credits</title></circle>
-    <polyline points="45.0,155.0 91.1,146.0 137.2,176.0 183.3,179.0 229.4,134.0 275.6,140.0 321.7,146.0 367.8,128.0 413.9,146.0 460.0,173.0 506.1,179.0 552.2,134.0 598.3,128.0 644.4,125.0 690.6,140.0 736.7,155.0 782.8,176.0 828.9,179.0 875.0,146.0" fill="none" stroke="#496eb0" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
-    <circle cx="45.0" cy="155.0" r="3" fill="#496eb0"><title>/work/customer-portal · 1 October · 10 credits</title></circle>
-    <circle cx="91.1" cy="146.0" r="3" fill="#496eb0"><title>/work/customer-portal · 2 October · 13 credits</title></circle>
-    <circle cx="137.2" cy="176.0" r="3" fill="#496eb0"><title>/work/customer-portal · 3 October · 3 credits</title></circle>
-    <circle cx="183.3" cy="179.0" r="3" fill="#496eb0"><title>/work/customer-portal · 4 October · 2 credits</title></circle>
-    <circle cx="229.4" cy="134.0" r="3" fill="#496eb0"><title>/work/customer-portal · 5 October · 17 credits</title></circle>
-    <circle cx="275.6" cy="140.0" r="3" fill="#496eb0"><title>/work/customer-portal · 6 October · 15 credits</title></circle>
-    <circle cx="321.7" cy="146.0" r="3" fill="#496eb0"><title>/work/customer-portal · 7 October · 13 credits</title></circle>
-    <circle cx="367.8" cy="128.0" r="3" fill="#496eb0"><title>/work/customer-portal · 8 October · 19 credits</title></circle>
-    <circle cx="413.9" cy="146.0" r="3" fill="#496eb0"><title>/work/customer-portal · 9 October · 13 credits</title></circle>
-    <circle cx="460.0" cy="173.0" r="3" fill="#496eb0"><title>/work/customer-portal · 10 October · 4 credits</title></circle>
-    <circle cx="506.1" cy="179.0" r="3" fill="#496eb0"><title>/work/customer-portal · 11 October · 2 credits</title></circle>
-    <circle cx="552.2" cy="134.0" r="3" fill="#496eb0"><title>/work/customer-portal · 12 October · 17 credits</title></circle>
-    <circle cx="598.3" cy="128.0" r="3" fill="#496eb0"><title>/work/customer-portal · 13 October · 19 credits</title></circle>
-    <circle cx="644.4" cy="125.0" r="3" fill="#496eb0"><title>/work/customer-portal · 14 October · 20 credits</title></circle>
-    <circle cx="690.6" cy="140.0" r="3" fill="#496eb0"><title>/work/customer-portal · 15 October · 15 credits</title></circle>
-    <circle cx="736.7" cy="155.0" r="3" fill="#496eb0"><title>/work/customer-portal · 16 October · 10 credits</title></circle>
-    <circle cx="782.8" cy="176.0" r="3" fill="#496eb0"><title>/work/customer-portal · 17 October · 3 credits</title></circle>
-    <circle cx="828.9" cy="179.0" r="3" fill="#496eb0"><title>/work/customer-portal · 18 October · 2 credits</title></circle>
-    <circle cx="875.0" cy="146.0" r="3" fill="#496eb0"><title>/work/customer-portal · 19 October · 13 credits</title></circle>
-    <polyline points="45.0,173.0 91.1,167.0 137.2,182.0 183.3,185.0 229.4,161.0 275.6,167.0 321.7,173.0 367.8,170.0 413.9,164.0 460.0,179.0 506.1,185.0 552.2,161.0 598.3,143.0 644.4,164.0 690.6,167.0 736.7,161.0 782.8,179.0 828.9,182.0 875.0,164.0" fill="none" stroke="#aa681b" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
-    <circle cx="45.0" cy="173.0" r="3" fill="#aa681b"><title>/work/platform-infra · 1 October · 4 credits</title></circle>
-    <circle cx="91.1" cy="167.0" r="3" fill="#aa681b"><title>/work/platform-infra · 2 October · 6 credits</title></circle>
-    <circle cx="137.2" cy="182.0" r="3" fill="#aa681b"><title>/work/platform-infra · 3 October · 1 credits</title></circle>
-    <circle cx="183.3" cy="185.0" r="3" fill="#aa681b"><title>/work/platform-infra · 4 October · 0 credits</title></circle>
-    <circle cx="229.4" cy="161.0" r="3" fill="#aa681b"><title>/work/platform-infra · 5 October · 8 credits</title></circle>
-    <circle cx="275.6" cy="167.0" r="3" fill="#aa681b"><title>/work/platform-infra · 6 October · 6 credits</title></circle>
-    <circle cx="321.7" cy="173.0" r="3" fill="#aa681b"><title>/work/platform-infra · 7 October · 4 credits</title></circle>
-    <circle cx="367.8" cy="170.0" r="3" fill="#aa681b"><title>/work/platform-infra · 8 October · 5 credits</title></circle>
-    <circle cx="413.9" cy="164.0" r="3" fill="#aa681b"><title>/work/platform-infra · 9 October · 7 credits</title></circle>
-    <circle cx="460.0" cy="179.0" r="3" fill="#aa681b"><title>/work/platform-infra · 10 October · 2 credits</title></circle>
-    <circle cx="506.1" cy="185.0" r="3" fill="#aa681b"><title>/work/platform-infra · 11 October · 0 credits</title></circle>
-    <circle cx="552.2" cy="161.0" r="3" fill="#aa681b"><title>/work/platform-infra · 12 October · 8 credits</title></circle>
-    <circle cx="598.3" cy="143.0" r="3" fill="#aa681b"><title>/work/platform-infra · 13 October · 14 credits</title></circle>
-    <circle cx="644.4" cy="164.0" r="3" fill="#aa681b"><title>/work/platform-infra · 14 October · 7 credits</title></circle>
-    <circle cx="690.6" cy="167.0" r="3" fill="#aa681b"><title>/work/platform-infra · 15 October · 6 credits</title></circle>
-    <circle cx="736.7" cy="161.0" r="3" fill="#aa681b"><title>/work/platform-infra · 16 October · 8 credits</title></circle>
-    <circle cx="782.8" cy="179.0" r="3" fill="#aa681b"><title>/work/platform-infra · 17 October · 2 credits</title></circle>
-    <circle cx="828.9" cy="182.0" r="3" fill="#aa681b"><title>/work/platform-infra · 18 October · 1 credits</title></circle>
-    <circle cx="875.0" cy="164.0" r="3" fill="#aa681b"><title>/work/platform-infra · 19 October · 7 credits</title></circle>
-    <polyline points="45.0,179.0 91.1,176.0 137.2,185.0 183.3,185.0 229.4,176.0 275.6,179.0 321.7,164.0 367.8,179.0 413.9,176.0 460.0,182.0 506.1,185.0 552.2,176.0 598.3,173.0 644.4,179.0 690.6,176.0 736.7,173.0 782.8,182.0 828.9,185.0 875.0,179.0" fill="none" stroke="#9061a8" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
-    <circle cx="45.0" cy="179.0" r="3" fill="#9061a8"><title>/work/developer-tooling · 1 October · 2 credits</title></circle>
-    <circle cx="91.1" cy="176.0" r="3" fill="#9061a8"><title>/work/developer-tooling · 2 October · 3 credits</title></circle>
-    <circle cx="137.2" cy="185.0" r="3" fill="#9061a8"><title>/work/developer-tooling · 3 October · 0 credits</title></circle>
-    <circle cx="183.3" cy="185.0" r="3" fill="#9061a8"><title>/work/developer-tooling · 4 October · 0 credits</title></circle>
-    <circle cx="229.4" cy="176.0" r="3" fill="#9061a8"><title>/work/developer-tooling · 5 October · 3 credits</title></circle>
-    <circle cx="275.6" cy="179.0" r="3" fill="#9061a8"><title>/work/developer-tooling · 6 October · 2 credits</title></circle>
-    <circle cx="321.7" cy="164.0" r="3" fill="#9061a8"><title>/work/developer-tooling · 7 October · 7 credits</title></circle>
-    <circle cx="367.8" cy="179.0" r="3" fill="#9061a8"><title>/work/developer-tooling · 8 October · 2 credits</title></circle>
-    <circle cx="413.9" cy="176.0" r="3" fill="#9061a8"><title>/work/developer-tooling · 9 October · 3 credits</title></circle>
-    <circle cx="460.0" cy="182.0" r="3" fill="#9061a8"><title>/work/developer-tooling · 10 October · 1 credits</title></circle>
-    <circle cx="506.1" cy="185.0" r="3" fill="#9061a8"><title>/work/developer-tooling · 11 October · 0 credits</title></circle>
-    <circle cx="552.2" cy="176.0" r="3" fill="#9061a8"><title>/work/developer-tooling · 12 October · 3 credits</title></circle>
-    <circle cx="598.3" cy="173.0" r="3" fill="#9061a8"><title>/work/developer-tooling · 13 October · 4 credits</title></circle>
-    <circle cx="644.4" cy="179.0" r="3" fill="#9061a8"><title>/work/developer-tooling · 14 October · 2 credits</title></circle>
-    <circle cx="690.6" cy="176.0" r="3" fill="#9061a8"><title>/work/developer-tooling · 15 October · 3 credits</title></circle>
-    <circle cx="736.7" cy="173.0" r="3" fill="#9061a8"><title>/work/developer-tooling · 16 October · 4 credits</title></circle>
-    <circle cx="782.8" cy="182.0" r="3" fill="#9061a8"><title>/work/developer-tooling · 17 October · 1 credits</title></circle>
-    <circle cx="828.9" cy="185.0" r="3" fill="#9061a8"><title>/work/developer-tooling · 18 October · 0 credits</title></circle>
-    <circle cx="875.0" cy="179.0" r="3" fill="#9061a8"><title>/work/developer-tooling · 19 October · 2 credits</title></circle>
-    </svg>
-    <div class="chart-legend"><span><i style="background:#147d79"></i>/work/payments-api</span><span><i style="background:#496eb0"></i>/work/customer-portal</span><span><i style="background:#aa681b"></i>/work/platform-infra</span><span><i style="background:#9061a8"></i>/work/developer-tooling</span></div>
-    <p class="note">1–19 October · Daily attribution follows each session’s last update date.</p>
-    </section>
-
-  <details>
-    <summary>Supporting detail · project and model allocation</summary>
-    <table>
-      <thead><tr><th scope="col">Project</th><th scope="col">Recorded model</th><th scope="col">Local credits</th></tr></thead>
-      <tbody>
-        <tr><td>/work/payments-api</td><td>sonnet-4.5</td><td>360</td></tr>
-        <tr><td>/work/payments-api</td><td>haiku-4.5</td><td>72</td></tr>
-        <tr><td>/work/customer-portal</td><td>sonnet-4.5</td><td>180</td></tr>
-        <tr><td>/work/customer-portal</td><td>haiku-4.5</td><td>30</td></tr>
-        <tr><td>/work/platform-infra</td><td>sonnet-4.5</td><td>96</td></tr>
-        <tr><td>/work/developer-tooling</td><td>haiku-4.5</td><td>42</td></tr>
-        <tr><td><strong>Total</strong></td><td></td><td><strong>780</strong></td></tr>
-      </tbody>
-    </table>
-  </details>
+<div class="section-heading"><h2 id="daily-title">Daily credits by project</h2><span class="source">Local · approximate</span></div>
+<p class="note">1–31 October 2026 · Usage through 20 October, 00:00 UTC</p>
+<div class="heatmap-scroll"><table class="heatmap-grid"><thead><tr><th scope="col">Project / day</th>
+<th scope="col">01</th>
+<th scope="col">02</th>
+<th scope="col">03</th>
+<th scope="col">04</th>
+<th scope="col">05</th>
+<th scope="col">06</th>
+<th scope="col">07</th>
+<th scope="col">08</th>
+<th scope="col">09</th>
+<th scope="col">10</th>
+<th scope="col">11</th>
+<th scope="col">12</th>
+<th scope="col">13</th>
+<th scope="col">14</th>
+<th scope="col">15</th>
+<th scope="col">16</th>
+<th scope="col">17</th>
+<th scope="col">18</th>
+<th scope="col">19</th>
+<th scope="col">20</th>
+<th scope="col">21</th>
+<th scope="col">22</th>
+<th scope="col">23</th>
+<th scope="col">24</th>
+<th scope="col">25</th>
+<th scope="col">26</th>
+<th scope="col">27</th>
+<th scope="col">28</th>
+<th scope="col">29</th>
+<th scope="col">30</th>
+<th scope="col">31</th>
+</tr></thead><tbody>
+<tr><th scope="row">/work/payments-api</th>
+<td style="background:#b5dccb;color:#172b35" title="/work/payments-api · 1 October · 18.00 credits">18.00</td>
+<td style="background:#b5dccb;color:#172b35" title="/work/payments-api · 2 October · 21.00 credits">21.00</td>
+<td style="background:#e0f0e9;color:#172b35" title="/work/payments-api · 3 October · 8.00 credits">8.00</td>
+<td style="background:#e0f0e9;color:#172b35" title="/work/payments-api · 4 October · 4.00 credits">4.00</td>
+<td style="background:#b5dccb;color:#172b35" title="/work/payments-api · 5 October · 25.00 credits">25.00</td>
+<td style="background:#b5dccb;color:#172b35" title="/work/payments-api · 6 October · 32.00 credits">32.00</td>
+<td style="background:#b5dccb;color:#172b35" title="/work/payments-api · 7 October · 28.00 credits">28.00</td>
+<td style="background:#b5dccb;color:#172b35" title="/work/payments-api · 8 October · 24.00 credits">24.00</td>
+<td style="background:#b5dccb;color:#172b35" title="/work/payments-api · 9 October · 36.00 credits">36.00</td>
+<td style="background:#b5dccb;color:#172b35" title="/work/payments-api · 10 October · 12.00 credits">12.00</td>
+<td style="background:#e0f0e9;color:#172b35" title="/work/payments-api · 11 October · 5.00 credits">5.00</td>
+<td style="background:#b5dccb;color:#172b35" title="/work/payments-api · 12 October · 35.00 credits">35.00</td>
+<td style="background:#18543e;color:#fff" title="/work/payments-api · 13 October · 600.00 credits">600.00</td>
+<td style="background:#b5dccb;color:#172b35" title="/work/payments-api · 14 October · 32.00 credits">32.00</td>
+<td style="background:#b5dccb;color:#172b35" title="/work/payments-api · 15 October · 28.00 credits">28.00</td>
+<td style="background:#b5dccb;color:#172b35" title="/work/payments-api · 16 October · 34.00 credits">34.00</td>
+<td style="background:#b5dccb;color:#172b35" title="/work/payments-api · 17 October · 13.00 credits">13.00</td>
+<td style="background:#e0f0e9;color:#172b35" title="/work/payments-api · 18 October · 6.00 credits">6.00</td>
+<td style="background:#b5dccb;color:#172b35" title="/work/payments-api · 19 October · 31.00 credits">31.00</td>
+<td style="background:#edf2f2;color:#172b35" title="/work/payments-api · 20 October · 0.00 credits">0.00</td>
+<td class="future" title="Future date">—</td>
+<td class="future" title="Future date">—</td>
+<td class="future" title="Future date">—</td>
+<td class="future" title="Future date">—</td>
+<td class="future" title="Future date">—</td>
+<td class="future" title="Future date">—</td>
+<td class="future" title="Future date">—</td>
+<td class="future" title="Future date">—</td>
+<td class="future" title="Future date">—</td>
+<td class="future" title="Future date">—</td>
+<td class="future" title="Future date">—</td>
+</tr>
+<tr><th scope="row">/work/customer-portal</th>
+<td style="background:#e0f0e9;color:#172b35" title="/work/customer-portal · 1 October · 10.00 credits">10.00</td>
+<td style="background:#b5dccb;color:#172b35" title="/work/customer-portal · 2 October · 13.00 credits">13.00</td>
+<td style="background:#e0f0e9;color:#172b35" title="/work/customer-portal · 3 October · 3.00 credits">3.00</td>
+<td style="background:#e0f0e9;color:#172b35" title="/work/customer-portal · 4 October · 2.00 credits">2.00</td>
+<td style="background:#b5dccb;color:#172b35" title="/work/customer-portal · 5 October · 17.00 credits">17.00</td>
+<td style="background:#b5dccb;color:#172b35" title="/work/customer-portal · 6 October · 15.00 credits">15.00</td>
+<td style="background:#b5dccb;color:#172b35" title="/work/customer-portal · 7 October · 13.00 credits">13.00</td>
+<td style="background:#b5dccb;color:#172b35" title="/work/customer-portal · 8 October · 19.00 credits">19.00</td>
+<td style="background:#b5dccb;color:#172b35" title="/work/customer-portal · 9 October · 13.00 credits">13.00</td>
+<td style="background:#e0f0e9;color:#172b35" title="/work/customer-portal · 10 October · 4.00 credits">4.00</td>
+<td style="background:#e0f0e9;color:#172b35" title="/work/customer-portal · 11 October · 2.00 credits">2.00</td>
+<td style="background:#b5dccb;color:#172b35" title="/work/customer-portal · 12 October · 17.00 credits">17.00</td>
+<td style="background:#b5dccb;color:#172b35" title="/work/customer-portal · 13 October · 19.00 credits">19.00</td>
+<td style="background:#b5dccb;color:#172b35" title="/work/customer-portal · 14 October · 20.00 credits">20.00</td>
+<td style="background:#b5dccb;color:#172b35" title="/work/customer-portal · 15 October · 15.00 credits">15.00</td>
+<td style="background:#e0f0e9;color:#172b35" title="/work/customer-portal · 16 October · 10.00 credits">10.00</td>
+<td style="background:#e0f0e9;color:#172b35" title="/work/customer-portal · 17 October · 3.00 credits">3.00</td>
+<td style="background:#e0f0e9;color:#172b35" title="/work/customer-portal · 18 October · 2.00 credits">2.00</td>
+<td style="background:#b5dccb;color:#172b35" title="/work/customer-portal · 19 October · 13.00 credits">13.00</td>
+<td style="background:#edf2f2;color:#172b35" title="/work/customer-portal · 20 October · 0.00 credits">0.00</td>
+<td class="future" title="Future date">—</td>
+<td class="future" title="Future date">—</td>
+<td class="future" title="Future date">—</td>
+<td class="future" title="Future date">—</td>
+<td class="future" title="Future date">—</td>
+<td class="future" title="Future date">—</td>
+<td class="future" title="Future date">—</td>
+<td class="future" title="Future date">—</td>
+<td class="future" title="Future date">—</td>
+<td class="future" title="Future date">—</td>
+<td class="future" title="Future date">—</td>
+</tr>
+<tr><th scope="row">/work/platform-infra</th>
+<td style="background:#e0f0e9;color:#172b35" title="/work/platform-infra · 1 October · 4.00 credits">4.00</td>
+<td style="background:#e0f0e9;color:#172b35" title="/work/platform-infra · 2 October · 6.00 credits">6.00</td>
+<td style="background:#e0f0e9;color:#172b35" title="/work/platform-infra · 3 October · 1.00 credits">1.00</td>
+<td style="background:#edf2f2;color:#172b35" title="/work/platform-infra · 4 October · 0.00 credits">0.00</td>
+<td style="background:#e0f0e9;color:#172b35" title="/work/platform-infra · 5 October · 8.00 credits">8.00</td>
+<td style="background:#e0f0e9;color:#172b35" title="/work/platform-infra · 6 October · 6.00 credits">6.00</td>
+<td style="background:#e0f0e9;color:#172b35" title="/work/platform-infra · 7 October · 4.00 credits">4.00</td>
+<td style="background:#e0f0e9;color:#172b35" title="/work/platform-infra · 8 October · 5.00 credits">5.00</td>
+<td style="background:#e0f0e9;color:#172b35" title="/work/platform-infra · 9 October · 7.00 credits">7.00</td>
+<td style="background:#e0f0e9;color:#172b35" title="/work/platform-infra · 10 October · 2.00 credits">2.00</td>
+<td style="background:#edf2f2;color:#172b35" title="/work/platform-infra · 11 October · 0.00 credits">0.00</td>
+<td style="background:#e0f0e9;color:#172b35" title="/work/platform-infra · 12 October · 8.00 credits">8.00</td>
+<td style="background:#b5dccb;color:#172b35" title="/work/platform-infra · 13 October · 14.00 credits">14.00</td>
+<td style="background:#e0f0e9;color:#172b35" title="/work/platform-infra · 14 October · 7.00 credits">7.00</td>
+<td style="background:#e0f0e9;color:#172b35" title="/work/platform-infra · 15 October · 6.00 credits">6.00</td>
+<td style="background:#e0f0e9;color:#172b35" title="/work/platform-infra · 16 October · 8.00 credits">8.00</td>
+<td style="background:#e0f0e9;color:#172b35" title="/work/platform-infra · 17 October · 2.00 credits">2.00</td>
+<td style="background:#e0f0e9;color:#172b35" title="/work/platform-infra · 18 October · 1.00 credits">1.00</td>
+<td style="background:#e0f0e9;color:#172b35" title="/work/platform-infra · 19 October · 7.00 credits">7.00</td>
+<td style="background:#edf2f2;color:#172b35" title="/work/platform-infra · 20 October · 0.00 credits">0.00</td>
+<td class="future" title="Future date">—</td>
+<td class="future" title="Future date">—</td>
+<td class="future" title="Future date">—</td>
+<td class="future" title="Future date">—</td>
+<td class="future" title="Future date">—</td>
+<td class="future" title="Future date">—</td>
+<td class="future" title="Future date">—</td>
+<td class="future" title="Future date">—</td>
+<td class="future" title="Future date">—</td>
+<td class="future" title="Future date">—</td>
+<td class="future" title="Future date">—</td>
+</tr>
+<tr><th scope="row">/work/developer-tooling</th>
+<td style="background:#e0f0e9;color:#172b35" title="/work/developer-tooling · 1 October · 2.00 credits">2.00</td>
+<td style="background:#e0f0e9;color:#172b35" title="/work/developer-tooling · 2 October · 3.00 credits">3.00</td>
+<td style="background:#edf2f2;color:#172b35" title="/work/developer-tooling · 3 October · 0.00 credits">0.00</td>
+<td style="background:#edf2f2;color:#172b35" title="/work/developer-tooling · 4 October · 0.00 credits">0.00</td>
+<td style="background:#e0f0e9;color:#172b35" title="/work/developer-tooling · 5 October · 3.00 credits">3.00</td>
+<td style="background:#e0f0e9;color:#172b35" title="/work/developer-tooling · 6 October · 2.00 credits">2.00</td>
+<td style="background:#e0f0e9;color:#172b35" title="/work/developer-tooling · 7 October · 7.00 credits">7.00</td>
+<td style="background:#e0f0e9;color:#172b35" title="/work/developer-tooling · 8 October · 2.00 credits">2.00</td>
+<td style="background:#e0f0e9;color:#172b35" title="/work/developer-tooling · 9 October · 3.00 credits">3.00</td>
+<td style="background:#e0f0e9;color:#172b35" title="/work/developer-tooling · 10 October · 1.00 credits">1.00</td>
+<td style="background:#edf2f2;color:#172b35" title="/work/developer-tooling · 11 October · 0.00 credits">0.00</td>
+<td style="background:#e0f0e9;color:#172b35" title="/work/developer-tooling · 12 October · 3.00 credits">3.00</td>
+<td style="background:#e0f0e9;color:#172b35" title="/work/developer-tooling · 13 October · 4.00 credits">4.00</td>
+<td style="background:#e0f0e9;color:#172b35" title="/work/developer-tooling · 14 October · 2.00 credits">2.00</td>
+<td style="background:#e0f0e9;color:#172b35" title="/work/developer-tooling · 15 October · 3.00 credits">3.00</td>
+<td style="background:#e0f0e9;color:#172b35" title="/work/developer-tooling · 16 October · 4.00 credits">4.00</td>
+<td style="background:#e0f0e9;color:#172b35" title="/work/developer-tooling · 17 October · 1.00 credits">1.00</td>
+<td style="background:#edf2f2;color:#172b35" title="/work/developer-tooling · 18 October · 0.00 credits">0.00</td>
+<td style="background:#e0f0e9;color:#172b35" title="/work/developer-tooling · 19 October · 2.00 credits">2.00</td>
+<td style="background:#edf2f2;color:#172b35" title="/work/developer-tooling · 20 October · 0.00 credits">0.00</td>
+<td class="future" title="Future date">—</td>
+<td class="future" title="Future date">—</td>
+<td class="future" title="Future date">—</td>
+<td class="future" title="Future date">—</td>
+<td class="future" title="Future date">—</td>
+<td class="future" title="Future date">—</td>
+<td class="future" title="Future date">—</td>
+<td class="future" title="Future date">—</td>
+<td class="future" title="Future date">—</td>
+<td class="future" title="Future date">—</td>
+<td class="future" title="Future date">—</td>
+</tr>
+<tr><th scope="row">Daily total</th>
+<td style="background:#b5dccb;color:#172b35" title="Daily total · 1 October · 34.00 credits">34.00</td>
+<td style="background:#b5dccb;color:#172b35" title="Daily total · 2 October · 43.00 credits">43.00</td>
+<td style="background:#b5dccb;color:#172b35" title="Daily total · 3 October · 12.00 credits">12.00</td>
+<td style="background:#e0f0e9;color:#172b35" title="Daily total · 4 October · 6.00 credits">6.00</td>
+<td style="background:#75b99e;color:#172b35" title="Daily total · 5 October · 53.00 credits">53.00</td>
+<td style="background:#75b99e;color:#172b35" title="Daily total · 6 October · 55.00 credits">55.00</td>
+<td style="background:#75b99e;color:#172b35" title="Daily total · 7 October · 52.00 credits">52.00</td>
+<td style="background:#b5dccb;color:#172b35" title="Daily total · 8 October · 50.00 credits">50.00</td>
+<td style="background:#75b99e;color:#172b35" title="Daily total · 9 October · 59.00 credits">59.00</td>
+<td style="background:#b5dccb;color:#172b35" title="Daily total · 10 October · 19.00 credits">19.00</td>
+<td style="background:#e0f0e9;color:#172b35" title="Daily total · 11 October · 7.00 credits">7.00</td>
+<td style="background:#75b99e;color:#172b35" title="Daily total · 12 October · 63.00 credits">63.00</td>
+<td style="background:#18543e;color:#fff" title="Daily total · 13 October · 637.00 credits">637.00</td>
+<td style="background:#75b99e;color:#172b35" title="Daily total · 14 October · 61.00 credits">61.00</td>
+<td style="background:#75b99e;color:#172b35" title="Daily total · 15 October · 52.00 credits">52.00</td>
+<td style="background:#75b99e;color:#172b35" title="Daily total · 16 October · 56.00 credits">56.00</td>
+<td style="background:#b5dccb;color:#172b35" title="Daily total · 17 October · 19.00 credits">19.00</td>
+<td style="background:#e0f0e9;color:#172b35" title="Daily total · 18 October · 9.00 credits">9.00</td>
+<td style="background:#75b99e;color:#172b35" title="Daily total · 19 October · 53.00 credits">53.00</td>
+<td style="background:#edf2f2;color:#172b35" title="Daily total · 20 October · 0.00 credits">0.00</td>
+<td class="future" title="Future date">—</td>
+<td class="future" title="Future date">—</td>
+<td class="future" title="Future date">—</td>
+<td class="future" title="Future date">—</td>
+<td class="future" title="Future date">—</td>
+<td class="future" title="Future date">—</td>
+<td class="future" title="Future date">—</td>
+<td class="future" title="Future date">—</td>
+<td class="future" title="Future date">—</td>
+<td class="future" title="Future date">—</td>
+<td class="future" title="Future date">—</td>
+</tr>
+</tbody></table></div><div class="heatmap-legend">
+<span style="background:#edf2f2;color:#172b35">0</span>
+<span style="background:#e0f0e9;color:#172b35">&gt;0-10</span>
+<span style="background:#b5dccb;color:#172b35">&gt;10-50</span>
+<span style="background:#75b99e;color:#172b35">&gt;50-100</span>
+<span style="background:#348866;color:#fff">&gt;100-300</span>
+<span style="background:#18543e;color:#fff">&gt;300</span>
+</div><p class="note">Credits per cell · Fixed colour bands · — = future date · 20 October is partial</p>
+<p class="note">Daily attribution follows each session’s last update date.</p>
+</section>
 
   <footer>
-    <p><strong>Coverage.</strong> Official account consumption: 840 credits. Recorded local CLI consumption: 780 credits. The 60-credit difference has no project attribution in this report. Local records exclude IDE activity and assign session totals to the last update date and recorded model; allocations are approximate.</p>
-    <p><strong>Forecast.</strong> Calendar-day estimate using 840 credits over 19 elapsed days in a 31-day cycle. Assumes unchanged demand. Cycle dates follow the reset date; historical trends, subscription price, delivery outcomes, and time savings are unavailable.</p>
+    <p><strong>Coverage.</strong> Official account consumption: 1,400 credits. Recorded local CLI consumption: 1,340 credits. The 60-credit difference has no project attribution in this report. Local records exclude IDE activity and assign session totals to the last update date and recorded model; allocations are approximate.</p>
+    <p><strong>Forecast.</strong> Calendar-day estimate using 1,400 credits over 19 elapsed days in a 31-day cycle. Assumes unchanged demand. Cycle dates follow the reset date; historical trends, subscription price, delivery outcomes, and time savings are unavailable.</p>
     <div class="footer-line"><span>Generated by kiro-meter · 20 October 2026, 00:00 UTC</span><span>Usage evidence for license review</span></div>
   </footer>
 </main>

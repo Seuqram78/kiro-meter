@@ -1,4 +1,4 @@
-"""Verify month selection, nesting, chart attribution, and report CLI output."""
+"""Verify month selection, heatmap attribution, and single-page PDF output."""
 
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ from kiro_meter.app import RunContext
 from kiro_meter.db import load_conversations
 from kiro_meter.models import AppConfig, ConversationRow
 from kiro_meter.report import build_report, run_report
-from kiro_meter.report_render import render_report
+from kiro_meter.report_render import _future_day, _heat_band, render_report
 from tests.conftest import account_info
 
 if TYPE_CHECKING:
@@ -31,7 +31,8 @@ _MS = 1000
 _SELECTED_CREDITS = 25
 _LEAP_DAYS = 29
 _TIMEZONE_CREDITS = 3
-_PROJECT_LABEL_SECTIONS = 3
+_PROJECT_LABEL_SECTIONS = 2
+_JULY_DAYS = 31
 _SESSION_CREDITS = 2
 _EXIT_CANCELLED = 130
 _EXIT_ARGUMENT_ERROR = 2
@@ -53,7 +54,7 @@ def _row(folder: str, amount: float, month: int, day: int) -> ConversationRow:
     )
 
 
-def test_month_nesting_and_zero_filled_chart() -> None:
+def test_month_nesting_and_zero_filled_heatmap() -> None:
     """Month filtering and nesting preserve the credit sum at daily granularity."""
     rows = [
         _row("/work/api/src", 12, 7, 1),
@@ -67,7 +68,7 @@ def test_month_nesting_and_zero_filled_chart() -> None:
         ("/work/api", 20),
         ("/work/web", 5),
     ]
-    assert len(data.daily) == _NOW.day
+    assert len(data.daily) == _JULY_DAYS
     assert not data.daily[1]
     assert sum(row.credits for day in data.daily for row in day) == _SELECTED_CREDITS
     text = _pdf_text(render_report(data))
@@ -92,7 +93,7 @@ def test_historical_leap_month_and_timezone() -> None:
 
 
 def test_escape_labels_and_distinguish_duplicate_names() -> None:
-    """PDF renders directory, model, and account markup as literal text."""
+    """PDF escapes path/account markup and omits the removed model detail."""
     rows = [_row("/work/one/api", 1, 7, 1), _row("/work/two/api", 2, 7, 1)]
     rows.append(replace(rows[0], folder='/work/<script>"&', model_id="<img src=x>"))
     account = replace(account_info(), email="<script>alert(1)</script>")
@@ -103,7 +104,8 @@ def test_escape_labels_and_distinguish_duplicate_names() -> None:
     assert "/work/one/api" in text
     assert "/work/two/api" in text
     assert "<script>alert(1)</script>" in text
-    assert "<img src=x>" in text
+    assert "<img src=x>" not in text
+    assert "Project and model detail" not in text
     assert "/JavaScript" not in render_report(data).decode("latin-1")
 
 
@@ -223,28 +225,85 @@ def test_session_loader_used_by_report(
     assert data.projects[0].credits == _SESSION_CREDITS
 
 
-def test_many_projects_paginate_without_losing_detail() -> None:
-    """Long reports preserve every project and split charts into readable groups."""
+def test_many_projects_fit_one_page_without_losing_detail() -> None:
+    """Large reports scale uniformly onto one page and preserve every project."""
     rows = [_row(f"/work/project-{index:02d}", index + 1, 7, 1) for index in range(40)]
     data = build_report(rows, (2026, 7, 2), now=_NOW, tz=UTC)
     content = render_report(data)
     reader = PdfReader(BytesIO(content))
-    assert len(reader.pages) > 1
+    assert len(reader.pages) == 1
     text = _pdf_text(content)
-    assert "Daily credits by project (continued)" in text
-    assert "project-00" in text
-    assert "project-39" in text
+    assert "Daily credits by project (continued)" not in text
+    assert all(f"project-{index:02d}" in text for index in range(40))
     assert "820.00 credits" in text
 
 
-def test_first_day_chart_and_long_labels() -> None:
-    """A single-day chart and long paths render without layout or division errors."""
+def test_first_day_heatmap_and_long_labels() -> None:
+    """A partial month and long paths render on one page with all month columns."""
     folder = "/work/" + "project-name-" * 20
     now = datetime(2026, 7, 1, 12, tzinfo=UTC)
     data = build_report([_row(folder, 1, 7, 1)], (2026, 7, 2), now=now, tz=UTC)
     text = _pdf_text(render_report(data))
     assert "Daily credits by project" in text
     assert "1.00 credits" in text
+
+
+@pytest.mark.parametrize(
+    ("amount", "band"),
+    [
+        (0, 0),
+        (0.01, 1),
+        (10, 1),
+        (10.01, 2),
+        (50, 2),
+        (50.01, 3),
+        (100, 3),
+        (100.01, 4),
+        (300, 4),
+        (300.01, 5),
+        (600, 5),
+    ],
+)
+def test_heatmap_fixed_colour_boundaries(amount: float, band: int) -> None:
+    """Small days retain their band even when another day exceeds 600 credits."""
+    assert _heat_band(amount) == band
+
+
+def test_single_page_landscape_and_31_days() -> None:
+    """Approved layout keeps capacity, allocations, a spike, and all dates together."""
+    rows = [_row("/work/api", 600, 7, 13), _row("/work/web", 0.01, 7, 2)]
+    account = replace(account_info(), used=840, limit=1000, fetched_at=_NOW)
+    data = build_report(
+        rows, (2026, 7, 2), now=_NOW, tz=UTC, account_result=(account, "ok")
+    )
+    reader = PdfReader(BytesIO(render_report(data)))
+    assert len(reader.pages) == 1
+    page = reader.pages[0]
+    assert page.mediabox.width > page.mediabox.height
+    text = page.extract_text()
+    assert "Current billing-cycle capacity" in text
+    assert "Recorded project allocation" in text
+    assert "Daily total" in text
+    assert "600.00" in text
+    assert "0.01" in text
+    assert all(f"{day:02d}" in text.split() for day in range(1, _JULY_DAYS + 1))
+    assert "Recorded model" not in text
+
+
+def test_future_dates_use_local_month_not_generation_day() -> None:
+    """Historical late-month days remain numeric; current future dates are distinct."""
+    data = build_report([], (2026, 6, 1), now=_NOW, tz=UTC)
+    assert not _future_day(data, 30)
+    current = replace(data, month=7)
+    assert not _future_day(current, 20)
+    assert _future_day(current, 21)
+    near_midnight = replace(
+        current,
+        generated_at=datetime(2026, 7, 20, 20, tzinfo=UTC),
+        timezone=ZoneInfo("Australia/Perth"),
+    )
+    assert not _future_day(near_midnight, 21)
+    assert _future_day(near_midnight, 22)
 
 
 def test_current_month_survives_missing_token_store(

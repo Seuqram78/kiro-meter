@@ -95,10 +95,7 @@ def build_report(
     ]
     snapshot = build_db_snapshot(selected, now=now, tz=tz)
     models = collapse_by_nesting(snapshot.by_folder_model, nesting)
-    local_now = now.astimezone(tz)
     days = calendar.monthrange(year, month)[1]
-    if (year, month) == (local_now.year, local_now.month):
-        days = local_now.day
     daily = []
     for day in range(1, days + 1):
         day_rows = [row for row in selected if _row_time(row, tz).day == day]

@@ -102,15 +102,16 @@ within that year, and a folder nesting level from 1 through the maximum depth
 for that month's folders. Each nesting option previews the resulting groups.
 Depth counts from the filesystem root, just like the dashboard: `/work/api/src`
 at depth 2 belongs to `/work/api`.
-Project labels retain that folder path in allocation tables, chart legends,
-and model detail.
+Project labels retain that folder path in the allocation table and daily heatmap.
 
 The tool saves a uniquely named `kiro-usage-YYYY-MM-nN-TIMESTAMP.pdf` in the
 current directory and prints its path. It includes project allocation,
-daily credit lines by project,
-and model detail. Reports with many projects span multiple pages with repeated
-table headers and chart groups of up to six projects. No browser or external
-assets are required.
+a daily credit heatmap by project, and daily totals. The PDF uses a single
+landscape A3 page with all days of the selected month in one table. Fixed colour
+bands (0, >0-10, >10-50, >50-100, >100-300, >300 credits) keep smaller days visible
+when one day has a large spike. Each cell shows exact credits; future dates show
+a dash. Reports with many projects scale to fit the page, so text gets smaller.
+No browser or external assets are required.
 
 For the current month, the report also fetches official current billing-cycle
 capacity and estimates exhaustion using calendar-day average consumption.
@@ -121,7 +122,7 @@ uses saved settings without running first-time setup.
 
 Local allocations are approximate: each session's cumulative credits follow
 its last update date and recorded model. Sessions spanning months or changing
-models can distort daily/monthly attribution. Zero chart points mean no
+models can distort daily/monthly attribution. Zero heatmap cells mean no
 retained allocation, not confirmed inactivity. Deleted sessions and IDE usage
 are absent. The report does not measure productivity or investment returns.
 
