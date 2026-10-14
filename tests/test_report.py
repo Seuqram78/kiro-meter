@@ -278,6 +278,7 @@ def test_single_page_landscape_and_31_days() -> None:
     assert len(reader.pages) == 1
     page = reader.pages[0]
     assert page.mediabox.width > page.mediabox.height
+    assert float(page.mediabox.width / page.mediabox.height) == pytest.approx(16 / 9)
     text = page.extract_text()
     assert "Current billing-cycle capacity" in text
     assert "Recorded project allocation" in text
@@ -286,6 +287,8 @@ def test_single_page_landscape_and_31_days() -> None:
     assert "0.01" in text
     assert all(f"{day:02d}" in text.split() for day in range(1, _JULY_DAYS + 1))
     assert "Recorded model" not in text
+    normalized = " ".join(text.split())
+    assert "Project / day 01 W 02 T 03 F 04 S 05 S 06 M 07 T" in normalized
 
 
 def test_future_dates_use_local_month_not_generation_day() -> None:

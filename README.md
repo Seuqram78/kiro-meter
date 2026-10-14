@@ -107,7 +107,8 @@ Project labels retain that folder path in the allocation table and daily heatmap
 The tool saves a uniquely named `kiro-usage-YYYY-MM-nN-TIMESTAMP.pdf` in the
 current directory and prints its path. It includes project allocation,
 a daily credit heatmap by project, and daily totals. The PDF uses a single
-landscape A3 page with all days of the selected month in one table. Fixed colour
+16:9 page with narrow margins and all days of the selected month in one table.
+Day headings include weekday initials. Fixed colour
 bands (0, >0-10, >10-50, >50-100, >100-300, >300 credits) keep smaller days visible
 when one day has a large spike. Each cell shows exact credits; future dates show
 a dash. Reports with many projects scale to fit the page, so text gets smaller.

@@ -10,7 +10,6 @@ from typing import TYPE_CHECKING
 
 from reportlab.graphics.shapes import Drawing, Rect
 from reportlab.lib import colors
-from reportlab.lib.pagesizes import A3, landscape
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.pdfgen.canvas import Canvas
 from reportlab.platypus import (
@@ -51,14 +50,14 @@ _HEADING = ParagraphStyle(
     fontName="Helvetica-Bold",
     fontSize=12,
     leading=16,
-    spaceBefore=9,
+    spaceBefore=7,
     spaceAfter=6,
     keepWithNext=True,
 )
 _TITLE = ParagraphStyle("title", parent=_HEADING, fontSize=23, leading=29)
-_PAGE_SIZE = landscape(A3)
+_PAGE_SIZE = (1280, 720)
 _PAGE_WIDTH, _PAGE_HEIGHT = _PAGE_SIZE
-_MARGIN = 36
+_MARGIN = 18
 _WIDTH = _PAGE_WIDTH - _MARGIN * 2
 _METRIC_VALUE = ParagraphStyle(
     "metric-value", parent=_BODY, fontName="Helvetica-Bold", fontSize=12, leading=16
@@ -94,8 +93,8 @@ def _table(rows: list[list[object]], widths: list[float]) -> Table:
                 ("VALIGN", (0, 0), (-1, -1), "TOP"),
                 ("LEFTPADDING", (0, 0), (-1, -1), 8),
                 ("RIGHTPADDING", (0, 0), (-1, -1), 8),
-                ("TOPPADDING", (0, 0), (-1, -1), 7),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
+                ("TOPPADDING", (0, 0), (-1, -1), 5),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
             ]
         )
     )
@@ -173,8 +172,8 @@ def _capacity(data: ReportData) -> list[Flowable]:
                 ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#f1f5f5")),
                 ("VALIGN", (0, 0), (-1, -1), "TOP"),
                 ("LEFTPADDING", (0, 0), (-1, -1), 10),
-                ("TOPPADDING", (0, 0), (-1, -1), 9),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 9),
+                ("TOPPADDING", (0, 0), (-1, -1), 7),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
             ]
         )
     )
@@ -270,7 +269,14 @@ def _heat_table(data: ReportData, labels: dict[str, str]) -> Table:
     """Render all project rows and month columns in one heatmap table."""
     header: list[object] = [_text("Project / day", _SMALL)]
     header.extend(
-        _text(f"{day:02d}", _HEAT_TEXT) for day in range(1, len(data.daily) + 1)
+        [
+            _text(f"{day:02d}", _HEAT_TEXT),
+            _text(
+                calendar.day_name[date(data.year, data.month, day).weekday()][0],
+                _HEAT_TEXT,
+            ),
+        ]
+        for day in range(1, len(data.daily) + 1)
     )
     heat_rows = [
         _heat_row(data, labels[row.folder], row.folder) for row in data.projects
@@ -348,8 +354,8 @@ def _page_footer(canvas: Canvas) -> None:
     canvas.saveState()
     canvas.setFont("Helvetica", 7)
     canvas.setFillColor(_MUTED)
-    canvas.drawString(_MARGIN, 20, "kiro-meter / License usage report")
-    canvas.drawRightString(_PAGE_WIDTH - _MARGIN, 20, f"Page {canvas.getPageNumber()}")
+    canvas.drawString(_MARGIN, 8, "kiro-meter / License usage report")
+    canvas.drawRightString(_PAGE_WIDTH - _MARGIN, 8, f"Page {canvas.getPageNumber()}")
     canvas.restoreState()
 
 
